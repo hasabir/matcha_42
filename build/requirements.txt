@@ -3,3 +3,6 @@ Django
 django-debug-toolbar
 dj-database-url
 django-environ
+pyyaml
+djangorestframework
+django-cors-headers
