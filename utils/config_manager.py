@@ -7,18 +7,19 @@ class ConfigManager:
         self.config = self.load_yaml(config_file_path)
 
     def load_yaml(self, config_file_path: str) -> dict:
-        
         if not os.path.exists(config_file_path):
             raise FileNotFoundError(f"Configuration file not found: {config_file_path}")
 
         with open(config_file_path, 'r') as file:
             data = yaml.safe_load(file)
-        return data
+        
+        # Return empty dict if file is empty or contains only comments
+        return data if data is not None else {}
 
-    def _get(self, key: str):
+    def __getitem__(self, key: str):
         return self.config.get(key)
 
-    def _set(self, key: str, value) -> None:
+    def __setitem__(self, key: str, value) -> None:
         self.config[key] = value
         self.save_yaml()
 

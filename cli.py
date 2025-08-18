@@ -8,7 +8,7 @@ def build():
     subprocess.run(["docker-compose", '-f', "build/docker/docker-compose.yml", "up", "--build"])
 @app.command()
 def down():
-    subprocess.run(["docker-compose",'-f',"build/docker/docker-compose.yml", "down", "--rmi" ,"all"])
+    subprocess.run(["docker-compose",'-f',"build/docker/docker-compose.yml", "down"]) #, "--rmi" ,"all"
 
 @app.command()
 def clean():

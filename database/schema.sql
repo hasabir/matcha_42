@@ -10,12 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
     first_name TEXT,
     last_name TEXT,
     location TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    verification_tocken TEXT,
-    rest_tocken TEXT,
-    reset_password_tocken TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    verification_token TEXT,
+    rest_token TEXT,
+    reset_password_token TEXT,
     active BOOLEAN DEFAULT FALSE,
-    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 

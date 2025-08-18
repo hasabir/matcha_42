@@ -12,6 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # - - ./data:/tmp/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -23,7 +24,7 @@ services:
 
   web:
     build:
-      context: ../..
+      context: ../../../matcha_42
       dockerfile: build/docker/backend.dockerfile
     container_name: matcha_backend
     volumes:
@@ -33,7 +34,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: always
+    # restart: always
     env_file:
       - .env
 
