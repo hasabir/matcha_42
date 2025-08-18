@@ -1,30 +1,39 @@
 import database.connection as connection
-from database.create_tables import create_tables
-from flask import Flask
+from database.crud.create_tables import create_tables
+from flask import Flask, g
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils.config_manager import ConfigManager
 from flask_cors import CORS 
-
-app = Flask(__name__)
-CORS(app)
-connection_pool = connection.get_connection()
-create_tables(connection_pool)
-print("------> Tables created successfully")
-
-@app.teardown_appcontext
-def close_pool(exception=None):
-    if connection_pool:
-        connection_pool.closeall()
-
-
-@app.route('/')
-def index():
-    return "Welcome to the Matcha API!"
-
+from src.auth import auth_bp
+# from src.profile import profile_bp
+# from src.discovery import discovery_bp
+# from src.interactions import interactions_bp
+# from src.chat import messaging_bp
+# from src.notification import notifications_bp
 
 
 if __name__ == '__main__':
-	app.run(host='0.0.0.0', port=5000)
+    app = Flask(__name__)
+    CORS(app)
+    
+    connection_pool = connection.get_connection()
+    create_tables(connection_pool)
+    app.config["CONNECTION_POOL"] = connection_pool
+    with app.app_context():
+        connection = getattr(g, '_database_connection', None)  # Get connection from 'g'
+    if connection is not None:
+        connection_pool.putconn(connection)
+            
+            
+
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    # app.register_blueprint(profile_bp, url_prefix='/api/profile')
+    # app.register_blueprint(discovery_bp, url_prefix='/api/discovery')
+    # app.register_blueprint(interactions_bp, url_prefix='/api/interactions')
+    # app.register_blueprint(messaging_bp, url_prefix='/api/messaging')
+    # app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+
+    app.run(host='0.0.0.0', port=5000)

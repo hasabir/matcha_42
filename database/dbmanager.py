@@ -1,3 +1,4 @@
+from flask import g, current_app
 class DBManager:
     def __init__(self, connection_pool):
         self.pool = connection_pool
@@ -14,7 +15,6 @@ class DBManager:
         finally:
             self.pool.putconn(conn)
 
-    # Specific methods
     def select(self, table, columns="*", where=None):
         """Example: select('users', where='id = %s', (1,))"""
         query = f"SELECT {columns} FROM {table}"
@@ -26,4 +26,19 @@ class DBManager:
         query = f"INSERT INTO {table} ({', '.join(data.keys())}) VALUES ({', '.join(['%s'] * len(data))})"
         return self.execute(query, tuple(data.values()))
 
-    # Add insert/update/delete methods...
+
+    def update(self, table, data, where):
+        query = f"UPDATE {table} SET {', '.join([f'{k} = %s' for k in data.keys()])} WHERE {where}"
+        return self.execute(query, tuple(data.values()))
+
+    def delete(self, table, where):
+        query = f"DELETE FROM {table} WHERE {where}"
+        return self.execute(query)
+    
+
+    def get_db_connection():
+        """Get a DB connection for the current request (reuses if already opened)."""
+        if not hasattr(g, '_database_connection'):
+            pool = current_app.config["CONNECTION_POOL"]
+            g._database_connection = pool.getconn()
+        return g._database_connection
