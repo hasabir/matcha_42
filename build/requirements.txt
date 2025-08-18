@@ -1,8 +1,13 @@
+flask
+flask-cors
+python-dotenv
+bcrypt
+PyJWT
 psycopg2-binary
-Django
-django-debug-toolbar
-dj-database-url
-django-environ
-pyyaml
-djangorestframework
-django-cors-headers
+pillow
+requests
+flask-mail
+flask-socketio
+eventlet
+typer
+# subprocess
