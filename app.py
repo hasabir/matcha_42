@@ -6,17 +6,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils.config_manager import ConfigManager
-
+from flask_cors import CORS 
 
 app = Flask(__name__)
-
-
-# current_file_dir = os.path.dirname(os.path.abspath(__file__))
-# config_file_path = "build/config.yml"
-# config = ConfigManager(config_file_path)
-
-
-# print(f"------> Config loaded from {config_file_path}")
+CORS(app)
 connection_pool = connection.get_connection()
 create_tables(connection_pool)
 print("------> Tables created successfully")
