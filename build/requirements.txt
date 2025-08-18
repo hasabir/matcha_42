@@ -10,4 +10,5 @@ flask-mail
 flask-socketio
 eventlet
 typer
-# subprocess
+psycopg2-binary
+pyyaml
