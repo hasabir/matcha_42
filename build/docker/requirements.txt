@@ -13,7 +13,6 @@ pyyaml
 Flask
 sqlparse
 flask-bcrypt
-Flask-JWT-Extended
 # tkhrbiqa
 
 # psycopg2-binary==2.9.9

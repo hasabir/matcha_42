@@ -10,6 +10,7 @@ from flask_cors import CORS
 from src.auth import auth_bp
 from src.user_profile import profile_bp
 from flask_bcrypt import Bcrypt
+import jwt
 # from src.discovery import discovery_bp
 # from src.interactions import interactions_bp
 # from src.chat import messaging_bp
