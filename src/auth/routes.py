@@ -11,42 +11,41 @@ from utils.security import SecurityUtils
 from  database.crud.user_crud import User
 from flask_bcrypt import Bcrypt
 
-# bcrypt = Bcrypt(auth_bp)
 logging.basicConfig(level=logging.DEBUG)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    # try:
-    user_data = request.json
-    response = jsonify({"status": "ok"})
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    
-    if not connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    
-    user_crud = User(connection_pool)
-    
-    user = user_crud.get_user_by_username(user_data['username'])
-    
-    if not user or not SecurityUtils.password_check(user['password'], user_data['password']):
-        return jsonify({"error": "Invalid username or password"}), 401
-    
-    # Generate tokens
-    access_token = SecurityUtils.generate_access_token(user['id'])
-    refresh_token = SecurityUtils.generate_refresh_token(user['id'])
-    
-    # Send access token in JSON, refresh token as secure cookie
-    response = jsonify({'access_token': access_token})
-    response.set_cookie(
-        'refresh_token',
-        refresh_token,
-        httponly=True,
-        # secure=True,  #TODO Uncomment if we are using HTTPS
-        samesite='Strict'
-    )
-    # except Exception as e:
-    #     logging.error(f"Error during login: {e}")
-    #     return jsonify({"error": str(e), "message": "Login failed"}), 400
+    try:
+        user_data = request.json
+        response = jsonify({"status": "ok"})
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        user_crud = User(connection_pool)
+        
+        user = user_crud.get_user_by_username(user_data['username'])
+        
+        if not user or not SecurityUtils.password_check(user['password'], user_data['password']):
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+        # Generate tokens
+        access_token = SecurityUtils.generate_access_token(user['id'])
+        refresh_token = SecurityUtils.generate_refresh_token(user['id'])
+        
+        # Send access token in JSON, refresh token as secure cookie
+        response = jsonify({'access_token': access_token})
+        response.set_cookie(
+            'refresh_token',
+            refresh_token,
+            httponly=True,
+            # secure=True,  #TODO Uncomment if we are using HTTPS
+            samesite='Strict'
+        )
+    except Exception as e:
+        logging.error(f"Error during login: {e}")
+        return jsonify({"error": str(e), "message": "Login failed"}), 400
 
     return response
 
