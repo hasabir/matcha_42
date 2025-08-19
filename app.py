@@ -21,8 +21,13 @@ if __name__ == '__main__':
     app = Flask(__name__)
     app.config['BCRYPT'] = Bcrypt(app)
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
+    app.config['JWT_REFRESH_SECRET_KEY'] = os.environ.get('JWT_REFRESH_SECRET_KEY')
     
-    CORS(app)
+    CORS(app, 
+        supports_credentials=True,  # ← THIS allows cookies to be sent/received
+        # origins=['http://localhost:3000'],
+        allow_headers=['Authorization', 'Content-Type']  # What headers to accept
+    )
     
     connection_pool = connection.get_connection()
     create_tables(connection_pool)

@@ -2,10 +2,14 @@ import logging
 from flask import g, current_app
 import uuid
 from psycopg2 import sql
+import psycopg2.extras
 import sqlparse
 
 import sqlparse
 from psycopg2 import sql  # Required for proper SQL composition
+logging.basicConfig(level=logging.DEBUG)
+
+
 
 class DBManager:
     def __init__(self, connection_pool):
@@ -16,7 +20,8 @@ class DBManager:
         print("\033[93mExecuting query:\033[0m", query)
         conn = self.pool.getconn()
         try:
-            with conn.cursor() as cursor:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                logging.debug("----------- >Executed query: %s with params: %s", query, params)
                 cursor.execute(query, params or ())
                 
                 if hasattr(query, 'as_string') and "SELECT" in str(query).upper():
@@ -32,7 +37,7 @@ class DBManager:
         finally:
             self.pool.putconn(conn)
 
-    def select(self, table, columns="*", where=False, where_params=None):
+    def select(self, table, columns="*", where=None, where_params=None):
         """Safe parameterized query builder"""
         query = sql.SQL("SELECT {fields} FROM {table}").format(
             fields=sql.SQL(', ').join(
@@ -47,10 +52,11 @@ class DBManager:
                 where_clause=sql.SQL(where)
             )
         
+        logging.info("Executing select query: %s with params: %s", query, where_params)
+        
         return self.execute(query, where_params)
     
     def insert(self, table, data):
-        logging.basicConfig(level=logging.INFO)
 
         if not isinstance(data, dict):
             raise ValueError("Data must be a dictionary")

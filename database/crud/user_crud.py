@@ -34,9 +34,9 @@ class User(DBManager):
     
 
     def get_user_by_username(self, username):
-        """Retrieve user by username"""
-        return self.select('users', where='username = %s', params=(username,))
-    
+        result = self.select('users', where="username = %s", where_params=(username,))
+        return result[0] if result else None
+
     
     def get_all_users(self):
         """Retrieve all users"""

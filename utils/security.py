@@ -2,7 +2,8 @@
 from flask import current_app, request, jsonify
 import jwt
 from functools import wraps
-from datetime import datetime, timedelta
+import datetime
+
 
 class SecurityUtils:
     
@@ -22,14 +23,27 @@ class SecurityUtils:
             raise RuntimeError("BCRYPT not configured in app context")
         return bcrypt.check_password_hash(hashed_password, password)
     
-    @staticmethod
-    def generate_jwt_token(user_id, expires_hours=24):
-        """Generate a JWT token for the user."""
+    
+    
+    def generate_refresh_token(user_id):
+        #! HTTP-only Cookie (withcredentials = true) for refresh token
         token = jwt.encode(
             {
                 'user_id': user_id,
-                'exp': datetime.utcnow() + timedelta(hours=expires_hours)
-            },
+                'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7),
+                'type': 'refresh',           },
+            current_app.config['JWT_REFRESH_SECRET_KEY'],
+            algorithm='HS256'
+        )
+        return token
+    
+    def generate_access_token(user_id):
+        #! Authorization Header
+        token = jwt.encode(
+            {
+                'user_id': user_id,
+                'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1),
+                'type': 'access',},
             current_app.config['JWT_SECRET_KEY'],
             algorithm='HS256'
         )
@@ -59,7 +73,7 @@ def token_required(f):
         if not auth_header or not auth_header.startswith('Bearer '):
             return jsonify({'error': 'Token is missing or invalid format'}), 401
         
-        token = auth_header.split(' ')[1]  # Extract token from "Bearer <token>"
+        token = auth_header.split(' ')[1]  #! Extract token from "Bearer <token>" in react header
         
         # Verify token
         payload = SecurityUtils.verify_jwt_token(token)
@@ -71,3 +85,16 @@ def token_required(f):
         return f(*args, **kwargs)
     
     return decorated
+
+    # @staticmethod
+    # def generate_jwt_token(user_id, expires_hours=24):
+    #     """Generate a JWT token for the user."""
+    #     token = jwt.encode(
+    #         {
+    #             'user_id': user_id,
+    #             'exp': datetime.utcnow() + timedelta(hours=expires_hours)
+    #         },
+    #         current_app.config['JWT_SECRET_KEY'],
+    #         algorithm='HS256'
+    #     )
+    #     return token
