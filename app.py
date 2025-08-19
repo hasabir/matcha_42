@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.config_manager import ConfigManager
 from flask_cors import CORS 
 from src.auth import auth_bp
-# from src.profile import profile_bp
+from src.user_profile import profile_bp
 # from src.discovery import discovery_bp
 # from src.interactions import interactions_bp
 # from src.chat import messaging_bp
@@ -30,10 +30,10 @@ if __name__ == '__main__':
             
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    # app.register_blueprint(profile_bp, url_prefix='/api/profile')
+    app.register_blueprint(profile_bp, url_prefix='/api/profile')
     # app.register_blueprint(discovery_bp, url_prefix='/api/discovery')
     # app.register_blueprint(interactions_bp, url_prefix='/api/interactions')
     # app.register_blueprint(messaging_bp, url_prefix='/api/messaging')
     # app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

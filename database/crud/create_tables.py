@@ -10,7 +10,7 @@ def create_tables(connection_pool):
         cursor = connection.cursor()
         
         # Read schema file
-        schema_file = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        schema_file = os.path.join(os.path.dirname(__file__), '../schema.sql')
         with open(schema_file, 'r') as file:
             schema = file.read()
         

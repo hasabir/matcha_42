@@ -1,4 +1,5 @@
 from ..dbmanager import DBManager
+import logging
 
 
 class User(DBManager):
@@ -15,6 +16,9 @@ class User(DBManager):
     
     def create_user(self, user_data):
         """Create a new user"""
+        # user_data["id"] = 1
+        logging.basicConfig(level=logging.INFO)
+        logging.info("||||||||||||||||||User Data: %s", user_data, type(user_data))
         return self.insert('users', user_data)
     
     def update_user(self, user_id, user_data):
