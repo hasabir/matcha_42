@@ -7,11 +7,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
 
 from  database.crud.user_crud import User
+from flask_bcrypt import Bcrypt
+
+# bcrypt = Bcrypt(auth_bp)
+
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     ...
-    
+
 
 
 
@@ -20,9 +24,10 @@ def register():
     try:
         user_data = request.json
         connection_pool = current_app.config["CONNECTION_POOL"]
-        print("Connection Pool:", connection_pool)
+        
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
+        
         user_crud = User(connection_pool)
         result = user_crud.create_user(user_data)
         return jsonify({"status": "ok", "data": result}), 200

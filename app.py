@@ -9,6 +9,7 @@ from utils.config_manager import ConfigManager
 from flask_cors import CORS 
 from src.auth import auth_bp
 from src.user_profile import profile_bp
+from flask_bcrypt import Bcrypt
 # from src.discovery import discovery_bp
 # from src.interactions import interactions_bp
 # from src.chat import messaging_bp
@@ -17,6 +18,9 @@ from src.user_profile import profile_bp
 
 if __name__ == '__main__':
     app = Flask(__name__)
+    app.config['BCRYPT'] = Bcrypt(app)
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
+    
     CORS(app)
     
     connection_pool = connection.get_connection()
