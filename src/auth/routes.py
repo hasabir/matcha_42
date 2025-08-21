@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from itsdangerous import SignatureExpired
 from psycopg2.errors import UniqueViolation
-
+import datetime
 import sys
 import os
 from src.auth import auth_bp
@@ -132,6 +132,7 @@ def login():
         if not user or not SecurityUtils.password_check(user['password'], user_data['password']):
             return jsonify({"error": "Invalid username or password"}), 401
         
+        
         # Generate tokens
         access_token = SecurityUtils.generate_access_token(user['id'])
         refresh_token = SecurityUtils.generate_refresh_token(user['id'])
@@ -145,6 +146,9 @@ def login():
             # secure=True,  #TODO Uncomment if we are using HTTPS
             samesite='Strict'
         )
+        user_crud.update_user(
+                        {"last_seen": datetime.datetime.utcnow()},
+                        user_data["username"])
     except Exception as e:
         logging.error(f"Error during login: {e}")
         return jsonify({"error": str(e), "message": "Login failed"}), 400
