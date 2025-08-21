@@ -89,8 +89,9 @@ def confirm_email(token):
         mail_service = EmailService()
 
         mail_service = mail_service.confirm_email(token)
-        user_crud.update_user({'verification_token': None}, user_data['username'])
-        user_crud.update_user({'verified': True}, user_data['username'])
+        user_crud.update_user({'verification_token': None,
+                               'verified': True,
+                               'active': True}, user_data['username'])
         access_token = SecurityUtils.generate_access_token(user_data['id'])
         refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
         
@@ -147,7 +148,8 @@ def login():
             samesite='Strict'
         )
         user_crud.update_user(
-                        {"last_seen": datetime.datetime.utcnow()},
+                        {"last_seen": datetime.datetime.utcnow(),
+                         "active": True},
                         user_data["username"])
     except Exception as e:
         logging.error(f"Error during login: {e}")
