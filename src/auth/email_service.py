@@ -77,58 +77,12 @@ class EmailService:
             
         return token
 
-
-
-
-
-
-
-# class EmailService:
-#     def __init__(self):
-#         print("\033[93mSending verification email to:\033[0m")
-#         self.app = current_app
-#         self.mail = self.app.extensions.get('mail')
-#         if not self.mail:
-#             raise ValueError("Mail service is not configured in the current app context.")
-#         self.serializer = URLSafeTimedSerializer(current_app.config['SMTP_SECRET_KEY'])
-
-#     def send_verification_email(self, email):
-#         token = self.serializer.dumps(email, salt='email-confirm')
-#         print(f"\033[92mGenerated token: {token}\033[0m")
-        
-#         msg = Message(
-#             'Confirm Email',
-#             sender=self.app.config["MAIL_USERNAME"],
-#             recipients=[email])
-
-#         link = url_for(
-#             'auth.confirm_email', 
-#             token=token,
-#             _external=True)
-
-#         msg.body = 'Your link is {}'.format(link)
-
-#         # print(f"\033[93mSending email from: {self.app.config['MAIL_USERNAME']} with password {self.app.config["MAIL_PASSWORD"]}\033[0m")
-#         self.mail.send(msg)
-
-#         return token
-            
-            
-        
-
     def confirm_email(self, token):
         try:
+            logger.info(f"✅✅✅✅✅✅✅✅✅✅✅")
             email = self.serializer.loads(token, salt='email-confirm', max_age=3600)
             return email
         except SignatureExpired:
-        
-        # token = self.serializer.dumps(email, salt='email-confirm')
-        # # verification_url = f"{self.app.config['FRONTEND_URL']}/verify/{user_id}/{token}"
-        
-        # msg = Message("Email Verification", sender=self.app.config['MAIL_USERNAME'], recipients=[email])
-        # verification_url = url_for('confirm_email', token=token, _external=True)
-        # msg.body = f"Please verify your email by clicking the link: {verification_url}"
-        # # with self.app.app_context(): #! do i really need this?
-        # self.mail.send(msg)
-        # return token
-            return jsonify({"error": "The verification link has expired."}), 400
+            raise SignatureExpired("The verification link has expired.")
+        except Exception as e:
+            raise ValueError("Invalid verification token.")

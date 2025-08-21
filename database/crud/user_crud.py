@@ -36,10 +36,12 @@ class User(DBManager):
         result = self.select('users', where="username = %s", where_params=(username,))
         return result[0] if result else None
 
-    def get_user_by_token(self, token):
+    def get_user_by_token(self, token, column='*'):
         """Retrieve user by verification token"""
-        result = self.select('users', where="verification_token = %s", where_params=(token,))
+        result = self.select('users',column, where="verification_token = %s", where_params=(token,))
         return result[0] if result else None
+    
+    
     
     
     def get_all_users(self):

@@ -14,69 +14,86 @@ from flask_bcrypt import Bcrypt
 
 logging.basicConfig(level=logging.DEBUG)
 from .email_service import EmailService
+logger = logging.getLogger(__name__)
 
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    # try:
-    user_data = request.json
-    # print("\033[92mUser data:\033[0m", user_data)
-    logging.debug(f"@Registering user: {user_data['username']} with email: {user_data['email']}")
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    
-    if not connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    
-    user_crud = User(connection_pool)
-    # print("\033[93mExecuting query:\033[0m")
-    
-    result = user_crud.create_user(user_data)
-    mail_service = EmailService()
-    token = mail_service.send_verification_email(user_data['email'])
-    user_crud.update_user({'verification_token': token}, user_data['username'])
-    return jsonify({"status": "ok", "data": result, "message": "check you're email to verify your account", "token" : token}), 200
-    # except UniqueViolation as e:
-    #     logging.error(f"Unique constraint violation: {e}")
-    #     return jsonify({"error": "username or email already exists"}), 409
-    # except Exception as e:
-    #     logging.error(f"Error during registration: {e}")
-    #     return jsonify({"error": str(e), "message": "Registration failed"}), 500
+    try:
+        user_data = request.json
+        # print("\033[92mUser data:\033[0m", user_data)
+        logging.debug(f"@Registering user: {user_data['username']} with email: {user_data['email']}")
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        user_crud = User(connection_pool)
+        # print("\033[93mExecuting query:\033[0m")
+        
+        result = user_crud.create_user(user_data)
+        mail_service = EmailService()
+        token = mail_service.send_verification_email(user_data['email'])
+        user_crud.update_user({'verification_token': token}, user_data['username'])
+        return jsonify({"status": "ok", "data": result, "message": "check you're email to verify your account", "token" : token}), 200
+    except UniqueViolation as e:
+        logging.error(f"Unique constraint violation: {e}")
+        return jsonify({"error": "username or email already exists"}), 409
+    except Exception as e:
+        logging.error(f"Error during registration: {e}")
+        return jsonify({"error": str(e), "message": "Registration failed"}), 409
 
 
 @auth_bp.route('/confirm_email/<token>')
 def confirm_email(token):
     try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        user_crud = User(connection_pool)
+    
+        user_data = user_crud.get_user_by_token(token, column="username")
+        if not user_data:
+            return jsonify({"error": "Token invalide or expired"}), 400
+        logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
+
         mail_service = EmailService()
-        email = mail_service.confirm_token(token)
-        # Update user as verified in database
+
+        mail_service = mail_service.confirm_email(token)
+        user_crud.update_user({'verification_token': None}, user_data['username'])
+        user_crud.update_user({'verified': True}, user_data['username'])
+
         return jsonify({"message": "Email verified successfully"}), 200
     except SignatureExpired:
         return jsonify({"error": "Token expired"}), 400
     except Exception as e:
-        return jsonify({"error": "Invalid token"}), 400
+        return jsonify({"error": e}), 400
 
 
 
-# @auth_bp.route('/confirm/<token>', methods=['GET'])
-# def confirm_email(token):
-#     try:
-#         email = EmailService(current_app).confirm_email(token)
-#         if isinstance(email, tuple):  # If it returns a tuple, it's an error response
-#             return email
+@auth_bp.route('/resend_verification', methods=["POST"])
+def resend_verification():
+    try:
+        user_data = request.json
+        connection_pool = current_app.config["CONNECTION_POOL"]
         
-#         connection_pool = current_app.config["CONNECTION_POOL"]
-#         if not connection_pool:
-#             return jsonify({"error": "Database connection pool is not available"}), 500
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
         
-#         user_crud = User(connection_pool)
-#         user_crud.verify_user(email)
+        user_crud = User(connection_pool)
         
-#         return jsonify({"status": "ok", "message": "Email verified successfully"}), 200
-#     except Exception as e:
-#         logging.error(f"Error confirming email: {e}")
-#         return jsonify({"error": str(e), "message": "Email confirmation failed"}), 400
-
-
+        is_verified = user_crud.get_user_by_username(username=user_data["username"])
+        if is_verified["verified"]:
+            return jsonify({"error":"You're already verified"}), 409
+        
+        mail_service = EmailService()
+        token = mail_service.send_verification_email(user_data['email'])
+        user_crud.update_user({'verification_token': token}, user_data['username'])
+        return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
+    except UniqueViolation as e:
+        logging.error(f"Unique constraint violation: {e}")
+        return jsonify({"error": "username or email already exists"}), 409
+    except Exception as e:
+        logging.error(f"Error during registration: {e}")
+        return jsonify({"error": str(e), "message": "Registration failed"}), 409
 
 
 
