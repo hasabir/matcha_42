@@ -31,42 +31,17 @@ def register():
         user_crud = User(connection_pool)
         # print("\033[93mExecuting query:\033[0m")
         
-        result = user_crud.create_user(user_data)
+        user_crud.create_user(user_data)
         mail_service = EmailService()
         token = mail_service.send_verification_email(user_data['email'])
         user_crud.update_user({'verification_token': token}, user_data['username'])
-        return jsonify({"status": "ok", "data": result, "message": "check you're email to verify your account", "token" : token}), 200
+        return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
     except UniqueViolation as e:
         logging.error(f"Unique constraint violation: {e}")
         return jsonify({"error": "username or email already exists"}), 409
     except Exception as e:
         logging.error(f"Error during registration: {e}")
         return jsonify({"error": str(e), "message": "Registration failed"}), 409
-
-
-@auth_bp.route('/confirm_email/<token>')
-def confirm_email(token):
-    try:
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        user_crud = User(connection_pool)
-    
-        user_data = user_crud.get_user_by_token(token, column="username")
-        if not user_data:
-            return jsonify({"error": "Token invalide or expired"}), 400
-        logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
-
-        mail_service = EmailService()
-
-        mail_service = mail_service.confirm_email(token)
-        user_crud.update_user({'verification_token': None}, user_data['username'])
-        user_crud.update_user({'verified': True}, user_data['username'])
-
-        return jsonify({"message": "Email verified successfully"}), 200
-    except SignatureExpired:
-        return jsonify({"error": "Token expired"}), 400
-    except Exception as e:
-        return jsonify({"error": e}), 400
-
 
 
 @auth_bp.route('/resend_verification', methods=["POST"])
@@ -80,8 +55,11 @@ def resend_verification():
         
         user_crud = User(connection_pool)
         
-        is_verified = user_crud.get_user_by_username(username=user_data["username"])
-        if is_verified["verified"]:
+        user = user_crud.get_user_by_username(username=user_data["username"])
+        if not user:
+            return jsonify({"error": "user is not signed up"}), 409
+        
+        if user["verified"]:
             return jsonify({"error":"You're already verified"}), 409
         
         mail_service = EmailService()
@@ -95,6 +73,44 @@ def resend_verification():
         logging.error(f"Error during registration: {e}")
         return jsonify({"error": str(e), "message": "Registration failed"}), 409
 
+
+
+@auth_bp.route('/confirm_email/<token>')
+def confirm_email(token):
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        user_crud = User(connection_pool)
+    
+        user_data = user_crud.get_user_by_token(token)
+        if not user_data:
+            return jsonify({"error": "Token invalide or expired"}), 400
+        logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
+
+        mail_service = EmailService()
+
+        mail_service = mail_service.confirm_email(token)
+        user_crud.update_user({'verification_token': None}, user_data['username'])
+        user_crud.update_user({'verified': True}, user_data['username'])
+        access_token = SecurityUtils.generate_access_token(user_data['id'])
+        refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
+        
+        response = jsonify({
+            "message": "Email verified successfully",
+            "access_token": access_token,
+            "user_id": user_data['id'],
+            "username": user_data['username']
+        })
+        response.set_cookie(
+            'refresh_token',
+            refresh_token,
+            httponly=True,
+            samesite='Strict'
+        )
+        return response, 200
+    except SignatureExpired:
+        return jsonify({"error": "Token expired"}), 400
+    except Exception as e:
+        return jsonify({"error": e}), 400
 
 
 
