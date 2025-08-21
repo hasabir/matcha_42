@@ -13,7 +13,7 @@ from  database.crud.user_crud import User
 from flask_bcrypt import Bcrypt
 
 logging.basicConfig(level=logging.DEBUG)
-from .email_service import EmailService
+from ...utils.email_service import EmailService
 logger = logging.getLogger(__name__)
 
 
@@ -159,11 +159,6 @@ def login():
 
 
 
-
-
-
-
-
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     ...
@@ -193,6 +188,13 @@ def refresh():
     new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
     
     return jsonify({'access_token': new_access_token})
+
+
+
+
+
+
+
 
 
 
