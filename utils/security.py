@@ -32,7 +32,7 @@ class SecurityUtils:
                 'user_id': user_id,
                 'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7),
                 'type': 'refresh',           },
-            current_app.config['JWT_REFRESH_SECRET_KEY'],
+            current_app.config['JWT_REFRESH_TOKEN'],
             algorithm='HS256'
         )
         return token
@@ -44,7 +44,7 @@ class SecurityUtils:
                 'user_id': user_id,
                 'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1),
                 'type': 'access',},
-            current_app.config['JWT_SECRET_KEY'],
+            current_app.config['JWT_ACCESS_TOKEN'],
             algorithm='HS256'
         )
         return token
@@ -55,7 +55,7 @@ class SecurityUtils:
         try:
             payload = jwt.decode(
                 token, 
-                current_app.config['JWT_SECRET_KEY'],
+                current_app.config['JWT_ACCESS_TOKEN'],
                 algorithms=['HS256']
             )
             return payload
@@ -94,7 +94,7 @@ def token_required(f):
     #             'user_id': user_id,
     #             'exp': datetime.utcnow() + timedelta(hours=expires_hours)
     #         },
-    #         current_app.config['JWT_SECRET_KEY'],
+    #         current_app.config['JWT_ACCESS_TOKEN'],
     #         algorithm='HS256'
     #     )
     #     return token

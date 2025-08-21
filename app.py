@@ -10,6 +10,7 @@ from flask_cors import CORS
 from src.auth import auth_bp
 from src.user_profile import profile_bp
 from flask_bcrypt import Bcrypt
+from flask_mail import Mail
 import jwt
 # from src.discovery import discovery_bp
 # from src.interactions import interactions_bp
@@ -19,9 +20,15 @@ import jwt
 
 if __name__ == '__main__':
     app = Flask(__name__)
+    config = ConfigManager('build/config.yml')
+    app_config = config.load_config('build/config.yml')
+    app.config.update(app_config)
     app.config['BCRYPT'] = Bcrypt(app)
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
-    app.config['JWT_REFRESH_SECRET_KEY'] = os.environ.get('JWT_REFRESH_SECRET_KEY')
+    app.config['JWT_ACCESS_TOKEN'] = os.environ.get('JWT_ACCESS_TOKEN')
+    app.config['JWT_REFRESH_TOKEN'] = os.environ.get('JWT_REFRESH_TOKEN')
+    app.config['SMTP_SECRET_KEY'] = os.environ["SMTP_SECRET_KEY"]
+    mail = Mail(app)
+
     
     CORS(app, 
         supports_credentials=True,  # ← THIS allows cookies to be sent/received

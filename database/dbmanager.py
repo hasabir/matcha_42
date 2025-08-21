@@ -77,14 +77,48 @@ class DBManager:
 
 
 
-    def update(self, table, data, where):
-        # query = f"UPDATE {table} SET {', '.join([f'{k} = %s' for k in data.keys()])} WHERE {where}"
-        query = sql.SQL("UPDATE {table} SET {fields} WHERE {where}").format(
-            table=sql.Identifier(table),
-            fields=sql.SQL(', ').join([sql.SQL(f"{k} = %s") for k in data.keys()]),
-            where=sql.SQL(where)
+    def update(self, table, data, where=None, where_params=None):
+        
+        
+        """
+        Safe UPDATE function with parameterized WHERE clause
+        
+        :param table: Table name
+        :param data: Dict of {column: value} to update
+        :param where: SQL string for WHERE clause (use placeholders %s)
+        :param where_params: Parameters for WHERE clause placeholders
+        """
+        if not data:
+            raise ValueError("No data provided for update")
+        
+        # Build SET clause
+        set_clause = sql.SQL(", ").join([
+            sql.SQL("{} = %s").format(sql.Identifier(key))
+            for key in data.keys()
+        ])
+        
+        # Build WHERE clause
+        if where:
+            where_clause = sql.SQL("WHERE {}").format(sql.SQL(where))
+        else:
+            where_clause = sql.SQL("")  # No WHERE clause (use with caution!)
+        
+        # Build complete query
+        query = sql.SQL("UPDATE {} SET {} {}").format(
+            sql.Identifier(table),
+            set_clause,
+            where_clause
         )
-        return self.execute(query, tuple(data.values()))
+        
+        # Combine parameters
+        params = list(data.values())
+        if where_params:
+            if isinstance(where_params, (list, tuple)):
+                params.extend(where_params)
+            else:
+                params.append(where_params)
+        
+        return self.execute(query, params)
 
     def delete(self, table, where):
         # query = f"DELETE FROM {table} WHERE {where}"

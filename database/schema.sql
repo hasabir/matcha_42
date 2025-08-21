@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_name TEXT,
     location TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    verification_token TEXT,
+    verification_token TEXT, --! don't know if i really need this
+    verified BOOLEAN DEFAULT FALSE, --! don't know if i really need this
     reset_token TEXT, 
     reset_password_token TEXT,
     active BOOLEAN DEFAULT FALSE,
