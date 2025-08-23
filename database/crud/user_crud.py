@@ -32,8 +32,12 @@ class User(DBManager):
         return self.select('users', where='id = %s', params=(user_id,))
     
 
-    def get_user_by_username(self, username):
-        result = self.select('users', where="username = %s", where_params=(username,))
+    def get_user_by_username(self, username, user_id=None):
+        if username:
+            result = self.select('users', where="username = %s", where_params=(username,))
+        else:
+            result = self.select('users', where="user_id = %s", where_params=(user_id,))
+            
         return result[0] if result else None
 
     def get_user_by_token(self, token, column='*'):

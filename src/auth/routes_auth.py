@@ -32,9 +32,9 @@ def register():
         user_crud = User(connection_pool)
         # print("\033[93mExecuting query:\033[0m")
         
-        user_crud.create_user(user_data)
         mail_service = EmailService()
-        token = mail_service.send_verification_email(user_data['email'])
+        token = mail_service.send_verification_email(user_data['email'], "email_verification")
+        user_crud.create_user(user_data)
         user_crud.update_user({'verification_token': token}, user_data['username'])
         return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
     except UniqueViolation as e:
@@ -177,19 +177,26 @@ def get_all_users():
 
 
 
-@auth_bp.route('/refresh', methods=['POST'])
+@auth_bp.route('/refresh')
 def refresh():
     """Refresh access token using refresh token stored in HTTP-only cookie."""
-
-    #! Get refresh token from COOKIE (automatically sent by browser)
-    refresh_token = request.cookies.get('refresh_token')
-    
-    # Verify refresh token and issue new access token
-    payload = SecurityUtils.verify_jwt_token(refresh_token, 'refresh')
-    new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
-    
-    return jsonify({'access_token': new_access_token})
-
+    try:
+        #! Get refresh token from COOKIE (automatically sent by browser)
+        refresh_token = request.cookies.get('refresh_token')
+        
+        # Verify refresh token and issue new access token
+        logger.info(f"👉 refresh token -> {refresh_token}")
+        payload = SecurityUtils.verify_jwt_token(refresh_token)
+        logger.info(f"⚡ {payload} ->")
+        
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 403
+        new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
+        if 'error' in payload:
+            return jsonify({'error': payload['error']}), 403
+        return jsonify({'access_token': new_access_token})
+    except Exception as e:
+        return jsonify({"error": e}), 403
 
 
 

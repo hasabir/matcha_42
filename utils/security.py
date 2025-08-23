@@ -1,5 +1,6 @@
 # utils/security.py
-from flask import current_app, request, jsonify
+import logging
+from flask import current_app, request, jsonify, g
 import jwt
 from functools import wraps
 import datetime
@@ -64,9 +65,10 @@ class SecurityUtils:
         except jwt.InvalidTokenError:
             return {"error": "Invalid token format or signature"} 
 
+logger = logging.getLogger(__name__)
 
 
-def token_required(f):
+def auth_guard(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
@@ -80,8 +82,12 @@ def token_required(f):
         if not payload:
             return jsonify({'error': 'Invalid or expired token'}), 403
         
+        logger.info(f"⚡ {payload} ->")
         # Add user_id to request context for use in the route
-        request.user_id = payload['user_id']
+        if 'error' in payload:
+            return jsonify({'error': payload['error']}), 403
+        g.user_id = payload['user_id']
+
         return f(*args, **kwargs)
     
     return decorated
