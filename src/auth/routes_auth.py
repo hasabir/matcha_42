@@ -33,8 +33,8 @@ def register():
         # print("\033[93mExecuting query:\033[0m")
         
         mail_service = EmailService()
-        token = mail_service.send_verification_email(user_data['email'], "email_verification")
         user_crud.create_user(user_data)
+        token = mail_service.send_verification_email(user_data['email'], "email_verification")
         user_crud.update_user({'verification_token': token}, user_data['username'])
         return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
     except UniqueViolation as e:

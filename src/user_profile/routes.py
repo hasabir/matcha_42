@@ -3,6 +3,8 @@ from database.crud.user_crud import User
 from src.user_profile import profile_bp
 import sys
 import os
+
+from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
 from utils.security import auth_guard
@@ -26,6 +28,15 @@ def create_profile():
         profile = profile_crud.get_profile_by_user_id(request_data["user_id"])
         if profile:
             return jsonify({"error": "profile already created"}), 401
+        
+        validation_errors = validate_profile_data(request_data)
+
+        if validation_errors:
+            return jsonify({
+                "error": "Validation failed",
+                "details": validation_errors
+            }), 400
+        
         if not all([request_data["bio"],
                     request_data["gender"], request_data["age"],
                     request_data['location'], request_data['profile_picture'],
