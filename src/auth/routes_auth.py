@@ -10,6 +10,7 @@ import logging
 from utils.security import SecurityUtils
 
 from  database.crud.user_crud import User
+from database.crud.profile_crud import Profile
 from flask_bcrypt import Bcrypt
 
 logging.basicConfig(level=logging.DEBUG)
@@ -57,7 +58,7 @@ def resend_verification():
         
         user = user_crud.get_user_by_username(username=user_data["username"])
         if not user:
-            return jsonify({"error": "user is not signed up"}), 409
+            return jsonify({"error": "user is not signed up"}), 401
         
         if user["verified"]:
             return jsonify({"error":"You're already verified"}), 409

@@ -41,6 +41,11 @@ class User(DBManager):
         result = self.select('users',column, where="verification_token = %s", where_params=(token,))
         return result[0] if result else None
     
+    def get_user_by(self, select_type, field, columns="*"):
+        where_clause = f"{select_type} = %s"
+        result = self.select('users', columns, where=where_clause, where_params=(field,))
+        return result[0] if result else None
+    
     
     
     

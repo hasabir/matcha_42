@@ -9,12 +9,22 @@ from  database.crud.profile_crud import Profile
 
 # profile_bp = Blueprint('user_profile', __name__)
 
+
+@profile_bp.route("/create_profile", methods=["POST"])
+
+def create_profile():
+    request_data = request.json
+    ...
+    
+    
+
+
 @profile_bp.route('/<int:user_id>', methods=['GET'])
 def get_profile(user_id):
     # Logic to retrieve user profile by user_id
     return jsonify({"message": f"Profile for user {user_id}"}), 200
 
-@profile_bp.route('/getprofiles', methods=['GET'])
+@profile_bp.route('/get_all_profiles', methods=['GET'])
 def get_all_profiles():
     logging.info("*********************Fetching all profiles**********")
     connection_pool = current_app.config["CONNECTION_POOL"]

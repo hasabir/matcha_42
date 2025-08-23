@@ -1,5 +1,5 @@
 import database.connection as connection
-from database.crud.create_tables import create_tables
+from database.create_tables import create_tables
 from flask import Flask, g
 import os
 import sys
