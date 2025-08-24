@@ -15,6 +15,16 @@ from  database.crud.profile_crud import Profile
 logger = logging.getLogger(__name__)
 
 
+def get_tags(request_data):
+    if not request_data or "tags" not in request_data:
+        return "error: missing required field : <tags>"
+    if not isinstance(request_data["tags"], list):
+        return "error: tags must be in a list"
+    parsed_tags = []
+    for tag in request_data["tags"]:
+        parsed_tags.append(tag.strip("#").lower())
+    return parsed_tags
+    # if request_data[""]
 
 @profile_bp.route("/add_tags", methods=["POST"])
 @auth_guard
@@ -25,8 +35,8 @@ def add_tags():
     if not  connection_pool:
         return jsonify({"error": "Database connection pool is not available"}), 500
     #TODO -> pars tags
-    tag_result = profile_crud.insert_tag(request_data["tags"])
-    # tag_id = tag_result[0]['tag_id']
-    logger.debug(f"👉 👉 👉 👉 👉 👉 {tag_result}")
-    # profile_crud.add_user_interests(g.user_id, tag_id)
+    tags = get_tags(request_data)
+    for tag in tags:
+        tag_result = profile_crud.insert_tag(tag)
+        profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
     return jsonify({"status": "ok"}), 200
