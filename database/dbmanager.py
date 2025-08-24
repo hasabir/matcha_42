@@ -138,13 +138,32 @@ class DBManager:
         
         return self.execute(query, params)
 
-    def delete(self, table, where):
-        # query = f"DELETE FROM {table} WHERE {where}"
-        query = sql.SQL("DELETE FROM {table} WHERE {where}").format(
-            table=sql.Identifier(table),
-            where=sql.SQL(where)
+    def delete(self, table, where=None, where_params=None):
+        """Safe parameterized DELETE query builder"""
+        # Start with the basic DELETE statement
+        query = sql.SQL("DELETE FROM {table}").format(
+            table=sql.Identifier(table)
         )
-        return self.execute(query)
+        
+        # Add WHERE clause if provided
+        if where:
+            # The key fix: Use sql.SQL() for the where clause to allow multiple conditions
+            query = sql.SQL("{base_query} WHERE {where_clause}").format(
+                base_query=query,
+                where_clause=sql.SQL(where)  # This allows multiple conditions
+            )
+        
+        logging.info("Executing delete query: %s with params: %s", query, where_params)
+        return self.execute(query, where_params)
+            
+        
+        
+        
+        # query = sql.SQL("DELETE {feild} FROM {table} WHERE {where}").format(
+        #     table=sql.Identifier(table),
+        #     where=sql.SQL(where)
+        # )
+        # return self.execute(query)
     
 
     def get_db_connection():

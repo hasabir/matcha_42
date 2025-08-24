@@ -29,14 +29,38 @@ def get_tags(request_data):
 @profile_bp.route("/add_tags", methods=["POST"])
 @auth_guard
 def add_tags():
-    request_data = request.json
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    profile_crud = Profile(connection_pool)
-    if not  connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    #TODO -> pars tags
-    tags = get_tags(request_data)
-    for tag in tags:
-        tag_result = profile_crud.insert_tag(tag)
-        profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
-    return jsonify({"status": "ok"}), 200
+    try:
+        request_data = request.json
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        profile_crud = Profile(connection_pool)
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        tags = get_tags(request_data)
+        for tag in tags:
+            tag_result = profile_crud.insert_tag(tag)
+            profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        return jsonify({"error": e}), 409
+
+
+@profile_bp.route("/delete_tag", methods=["POST"])
+@auth_guard
+def delet_tag():
+    try:
+        request_data = request.json
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        profile_crud = Profile(connection_pool)
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        if not isinstance(request_data["tag"], str):
+            return jsonify({"error": "tag must be a string"}), 415
+        tag_id = profile_crud.get_tag_id(request_data["tag"])
+        if not tag_id:
+            return jsonify({"error": "user does not have request interst"}), 401
+        user_id  = g.user_id
+        profile_crud.remove_user_interest(user_id=user_id, tag_id=tag_id["tag_id"])
+        return jsonify({"status": "ok"}), 200
+    except KeyError as e:
+        return jsonify({"error": "requied field <tag>"}), 415
+    

@@ -25,14 +25,20 @@ class Profile(DBManager):
     def get_all_profiles(self):
         """Retrieve all profiles"""
         return self.select('profiles')
-    
-    
-    
+
+
+    def get_tag_id(self, tag_name):
+        try:
+            result = self.select('tags', "tag_id", where='tag_name = %s', where_params=(tag_name,))
+            return result[0] if result else None
+        except Exception as e:
+            raise Exception(e)
+
+
     def insert_tag(self, tag_name):
         try:
             self.insert('tags', {"tag_name": tag_name}, "nothing")
-            result = self.select('tags', "tag_id", where='tag_name = %s', where_params=(tag_name,))
-            return result[0] if result else None
+            return self.get_tag_id(tag_name)
         except Exception as e:
             raise Exception(e)
         # if result: # If the INSERT succeeded and returned an id
@@ -47,6 +53,11 @@ class Profile(DBManager):
         return self.insert(table='user_tags', data={"user_id": user_id,
                                          "tag_id": tag_id},
                            on_conflict="nothing")
-    # def remove_user_interest(user_id, interest_id):
+    def remove_user_interest(self, user_id, tag_id):
+        return self.delete(
+                table='user_tags',
+                where='user_id = %s AND tag_id = %s',
+                where_params=(user_id, tag_id)
+            )
     # def get_user_interests(user_id):
     # def create_interest_if_not_exists(interest_name):
