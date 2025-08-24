@@ -39,7 +39,7 @@ def add_tags():
         for tag in tags:
             tag_result = profile_crud.insert_tag(tag)
             profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
-        return jsonify({"status": "ok"}), 200
+        return jsonify({"status": "ok"}), 201
     except Exception as e:
         return jsonify({"error": e}), 409
 
@@ -60,27 +60,22 @@ def delet_tag():
             return jsonify({"error": "user does not have request interst"}), 401
         user_id  = g.user_id
         profile_crud.remove_user_interest(user_id=user_id, tag_id=tag_id["tag_id"])
-        return jsonify({"status": "ok"}), 200
-    except KeyError as e:
+        return jsonify({"status": "ok"}), 201
+    except KeyError:
         return jsonify({"error": "requied field <tag>"}), 415
     except Exception as e:
-        return jsonify({"error": "requied field <tag>"}), 409
+        return jsonify({"error": e}), 409
 
-@profile_bp.route("/profile/<username>")
+    
+@profile_bp.route("/get_user_tags") #! do I really need this endpoint 🤪
 @auth_guard
-def get_profile(username):
+def get_user_interests():
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
-        user_crud = User(connection_pool)
-        user_data = user_crud.get_user_by_username(username=username)
-        if not user_data:
-            return jsonify({"error": "user not found"}), 404
-
-        #TODO check first if the user is not blocked then continue
-
-        profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
+        result = profile_crud.get_user_interests(g.user_id)
+        return jsonify({'result': result}), 200
     except Exception as e:
-        return jsonify({"error": "requied field <tag>"}), 409
+        return jsonify({"error": e}), 409

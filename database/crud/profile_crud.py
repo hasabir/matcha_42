@@ -1,3 +1,4 @@
+import logging
 from ..dbmanager import DBManager
 from psycopg2 import sql
 
@@ -59,5 +60,18 @@ class Profile(DBManager):
                 where='user_id = %s AND tag_id = %s',
                 where_params=(user_id, tag_id)
             )
-    # def get_user_interests(user_id):
-    # def create_interest_if_not_exists(interest_name):
+
+    def get_user_interests(self, user_id):
+        logger = logging.getLogger(__name__)
+        
+        result = self.select('user_tags', "tag_id", where="user_id = %s", where_params=(user_id,))
+
+        tag_ids = [tag['tag_id'] for tag in result]
+
+        
+        name_results = self.select('tags', "tag_name", where="tag_id", in_params=tag_ids)
+        
+        name_tags = [tag['tag_name'] for tag in name_results]
+        
+        logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
+        return name_tags

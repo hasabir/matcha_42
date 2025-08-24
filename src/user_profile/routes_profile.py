@@ -81,17 +81,44 @@ def update_profile():
     return jsonify({"status": "ok"}), 201
 
 
-@profile_bp.route('/<int:user_id>', methods=['GET'])
-def get_profile(user_id):
-    # Logic to retrieve user profile by user_id
-    return jsonify({"message": f"Profile for user {user_id}"}), 200
 
-@profile_bp.route('/get_all_profiles', methods=['GET'])
-def get_all_profiles():
-    logging.info("*********************Fetching all profiles**********")
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    if not connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    profile = Profile(connection_pool)
-    result = profile.get_all_profiles()
-    return jsonify({"status": "ok", "data": result}), 200
+
+
+@profile_bp.route("/search_profile/<username>")
+@auth_guard
+def get_profile(username):
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        profile_crud = Profile(connection_pool)
+        user_crud = User(connection_pool)
+        user_data = user_crud.get_user_by_username(username=username)
+        if not user_data:
+            return jsonify({"error": "user not found"}), 404
+
+        #TODO check first if the user is not blocked then continue
+
+        profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
+        profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
+        return jsonify({"result": profile_data}), 200
+    except Exception as e:
+        return jsonify({"error": "requied field <tag>"}), 409
+
+
+
+    
+# @profile_bp.route('/<int:user_id>', methods=['GET'])
+# def get_profile(user_id):
+#     # Logic to retrieve user profile by user_id
+#     return jsonify({"message": f"Profile for user {user_id}"}), 200
+
+# @profile_bp.route('/get_all_profiles', methods=['GET'])
+# def get_all_profiles():
+#     logging.info("*********************Fetching all profiles**********")
+#     connection_pool = current_app.config["CONNECTION_POOL"]
+#     if not connection_pool:
+#         return jsonify({"error": "Database connection pool is not available"}), 500
+#     profile = Profile(connection_pool)
+#     result = profile.get_all_profiles()
+#     return jsonify({"status": "ok", "data": result}), 200

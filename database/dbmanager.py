@@ -37,29 +37,85 @@ class DBManager:
         finally:
             self.pool.putconn(conn)
 
-    def select(self, table, columns="*", where=None, where_params=None):
-        """Safe parameterized query builder"""
+    # def select(self, table, columns="*", where=None, where_params=None, in_params=None):
+    #     """Safe parameterized query builder"""
+    #     query = sql.SQL("SELECT {fields} FROM {table}").format(
+    #         fields=sql.SQL(', ').join(
+    #             [sql.Identifier(col.strip()) for col in columns.split(',')]
+    #         ) if columns != "*" else sql.SQL("*"),
+    #         table=sql.Identifier(table)
+    #     )
+        
+    #     if where and not in_params:
+    #         query = sql.SQL("{base_query} WHERE {where_clause}").format(
+    #             base_query=query,
+    #             where_clause=sql.SQL(where)
+    #         )
+    #     elif where and in_params:
+    #         query = sql.SQL("{base_query} WHERE {where_clause} IN ({in_parameters})").format(
+    #         base_query=query,
+    #         where_clause=sql.SQL(where),
+    #         in_parameters=sql.SQL(', ').join(map(sql.Placeholder, range(len(in_params))))
+    #         )
+    #     logging.info("Executing select query: %s with params: %s", query, where_params)
+        
+    #     if where_params:
+    #         return self.execute(query, where_params)
+    #     else:
+    #         return self.execute(query)
+
+
+
+
+
+    def select(self, table, columns="*", where=None, where_params=None, in_params=None):
+        """Safe parameterized SELECT query builder"""
+        # Build SELECT fields
+        if columns == "*":
+            fields = sql.SQL("*")
+        else:
+            fields = sql.SQL(', ').join([sql.Identifier(col.strip()) for col in columns.split(',')])
+
         query = sql.SQL("SELECT {fields} FROM {table}").format(
-            fields=sql.SQL(', ').join(
-                [sql.Identifier(col.strip()) for col in columns.split(',')]
-            ) if columns != "*" else sql.SQL("*"),
+            fields=fields,
             table=sql.Identifier(table)
         )
-        
+
+        params = []
+        # Add WHERE clause if provided
         if where:
             query = sql.SQL("{base_query} WHERE {where_clause}").format(
                 base_query=query,
                 where_clause=sql.SQL(where)
             )
-        
-        # query = sql.SQL("{base_query}  RETURNING {id}").format(
-        #     base_query=query,
-        #     item_id=
-        # )
-        logging.info("Executing select query: %s with params: %s", query, where_params)
-        
-        return self.execute(query, where_params)
-    
+            if where_params:
+                if isinstance(where_params, (list, tuple)):
+                    params.extend(where_params)
+                else:
+                    params.append(where_params)
+
+        # Add IN clause if provided
+        if in_params:
+            placeholders = sql.SQL(', ').join(sql.Placeholder() * len(in_params))
+            query = sql.SQL("{base_query}  IN ({placeholders})").format(
+                base_query=query,
+                in_field=sql.Identifier(where) if isinstance(where, str) else sql.Identifier('id'),
+                placeholders=placeholders
+            )
+            params.extend(in_params)
+
+        logging.info("Executing select query: %s with params: %s", query, params)
+        return self.execute(query, params if params else None)
+
+
+
+
+
+
+
+
+
+
     def insert(self, table, data, on_conflict=None):
         if not isinstance(data, dict):
             raise ValueError("Data must be a dictionary")
