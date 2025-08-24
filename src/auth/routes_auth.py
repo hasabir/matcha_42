@@ -64,7 +64,7 @@ def resend_verification():
             return jsonify({"error":"You're already verified"}), 409
         
         mail_service = EmailService()
-        token = mail_service.send_verification_email(user_data['email'])
+        token = mail_service.send_verification_email(user_data['email'], "email_verification")
         user_crud.update_user({'verification_token': token}, user_data['username'])
         return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
     except UniqueViolation as e:

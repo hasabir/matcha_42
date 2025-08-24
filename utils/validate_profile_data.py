@@ -13,8 +13,7 @@ def validate_profile_data(request_data):
         'gender': {'allowed_values': ['Male', 'Female', 'Non-binary', 'Other']},
         'age': {'min_value': 18, 'max_value': 120},
         'location': {'min_length': 2, 'max_length': 100},
-        'profile_picture': {'type': 'text'},  # Assuming this should be a URL
-        'fame_rating': {'min_value': 0, 'max_value': 5},
+        'profile_picture': {'type': 'text'}, 
         'sexual_preferences': {'allowed_values': ['Men', 'Women', 'Both', 'All']}
     }
     logger.debug(f"⚠️⚠️⚠️ request data -> {request_data} ⚠️⚠️⚠️")
@@ -40,7 +39,7 @@ def validate_profile_data(request_data):
             continue
             
         # Validate based on field type
-        if field == 'age' or field == 'fame_rating':
+        if field == 'age':
             try:
                 num_value = int(value)
                 if 'min_value' in rules and num_value < rules['min_value']:

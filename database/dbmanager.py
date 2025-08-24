@@ -52,12 +52,15 @@ class DBManager:
                 where_clause=sql.SQL(where)
             )
         
+        # query = sql.SQL("{base_query}  RETURNING {id}").format(
+        #     base_query=query,
+        #     item_id=
+        # )
         logging.info("Executing select query: %s with params: %s", query, where_params)
         
         return self.execute(query, where_params)
     
-    def insert(self, table, data):
-
+    def insert(self, table, data, on_conflict=None):
         if not isinstance(data, dict):
             raise ValueError("Data must be a dictionary")
         if not data:
@@ -71,6 +74,21 @@ class DBManager:
             fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
             placeholders=sql.SQL(", ").join(sql.Placeholder() * len(values))
         )
+        
+        if on_conflict:
+            query = sql.SQL("{base_query} ON CONFLICT ({fields}) DO {action}").format(
+                base_query=query,
+                fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
+                action=sql.SQL(on_conflict)
+            )
+            
+        logger = logging.getLogger(__name__)
+        # Get a connection for as_string (for debugging only, not for execution)
+        conn = self.pool.getconn()
+        # try:
+        #     logger.debug(f"👉 👉 👉 👉 👉 👉 query = {query.as_string(conn)}")
+        # finally:
+        #     self.pool.putconn(conn)
 
         logging.info("Inserting into %s: %s", table, data)
         return self.execute(query, values)

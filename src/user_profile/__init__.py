@@ -2,4 +2,4 @@ from flask import Blueprint
 
 profile_bp = Blueprint('user_profile', __name__)
 
-from src.user_profile import routes 
+from src.user_profile import routes, interests

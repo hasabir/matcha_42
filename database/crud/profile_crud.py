@@ -1,4 +1,5 @@
 from ..dbmanager import DBManager
+from psycopg2 import sql
 
 class Profile(DBManager):
     def __init__(self, connection_pool):
@@ -24,3 +25,28 @@ class Profile(DBManager):
     def get_all_profiles(self):
         """Retrieve all profiles"""
         return self.select('profiles')
+    
+    
+    
+    def insert_tag(self, tag_name):
+        try:
+            self.insert('tags', {"tag_name": tag_name}, "nothing")
+            result = self.select('tags', "tag_id", where='tag_name = %s', where_params=(tag_name,))
+            return result[0] if result else None
+        except Exception as e:
+            raise Exception(e)
+        # if result: # If the INSERT succeeded and returned an id
+        #     return result
+        # else: #! If there was a conflict, get the existing id (do i need it?)
+        #     return ("Aleready exists")
+            # select_query = "SELECT tag_id FROM tags WHERE tag_name = %s;"
+            # return self.execute(select_query, (tag_name,))[0]['tag_id']
+
+
+    def add_user_interests(self, user_id, tag_id):
+        return self.insert(table='user_tags', data={"user_id": user_id,
+                                         "tag_id": tag_id},
+                           on_conflict="nothing")
+    # def remove_user_interest(user_id, interest_id):
+    # def get_user_interests(user_id):
+    # def create_interest_if_not_exists(interest_name):

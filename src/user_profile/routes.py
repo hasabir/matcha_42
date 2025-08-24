@@ -8,6 +8,7 @@ from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
 from utils.security import auth_guard
+from utils.fame_rating import calculate_fame_rating
 from  database.crud.profile_crud import Profile
 
 # profile_bp = Blueprint('user_profile', __name__)
@@ -30,6 +31,7 @@ def create_profile():
             return jsonify({"error": "profile already created"}), 401
         
         validation_errors = validate_profile_data(request_data)
+        request_data["fame_rating"] = calculate_fame_rating()
 
         if validation_errors:
             return jsonify({
