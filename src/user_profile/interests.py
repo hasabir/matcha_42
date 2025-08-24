@@ -50,9 +50,9 @@ def delet_tag():
     try:
         request_data = request.json
         connection_pool = current_app.config["CONNECTION_POOL"]
-        profile_crud = Profile(connection_pool)
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
+        profile_crud = Profile(connection_pool)
         if not isinstance(request_data["tag"], str):
             return jsonify({"error": "tag must be a string"}), 415
         tag_id = profile_crud.get_tag_id(request_data["tag"])
@@ -63,4 +63,24 @@ def delet_tag():
         return jsonify({"status": "ok"}), 200
     except KeyError as e:
         return jsonify({"error": "requied field <tag>"}), 415
-    
+    except Exception as e:
+        return jsonify({"error": "requied field <tag>"}), 409
+
+@profile_bp.route("/profile/<username>")
+@auth_guard
+def get_profile(username):
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        profile_crud = Profile(connection_pool)
+        user_crud = User(connection_pool)
+        user_data = user_crud.get_user_by_username(username=username)
+        if not user_data:
+            return jsonify({"error": "user not found"}), 404
+
+        #TODO check first if the user is not blocked then continue
+
+        profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
+    except Exception as e:
+        return jsonify({"error": "requied field <tag>"}), 409
