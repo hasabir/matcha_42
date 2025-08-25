@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, g
+from flask import Blueprint, request, jsonify, current_app, g, send_file, url_for
 from database.crud.user_crud import User
 from src.user_profile import profile_bp
 import sys
@@ -10,7 +10,7 @@ import logging
 from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
 from  database.crud.profile_crud import Profile
-from utils.image_handler import upload_profile_picture
+from utils.image_handler import upload_pictures
 from werkzeug.exceptions import BadRequestKeyError
 # profile_bp = Blueprint('user_profile', __name__)
 logger = logging.getLogger(__name__)
@@ -38,9 +38,9 @@ def create_profile():
             }), 400
 
         requested_file = request.files.get('profile_pic')
-        profile_path = upload_profile_picture(requested_file, g.user_id)
-        request_data["profile_picture"] = profile_path
+        profile_path = upload_pictures(requested_file, g.user_id)
         request_data["fame_rating"] = calculate_fame_rating()
+        request_data["profile_picture"] = profile_path
 
         profile_crud.create_profile(request_data)
         return jsonify({"status": "ok"}), 201
@@ -103,59 +103,3 @@ def get_profile(username):
     except Exception as e:
         return jsonify({"error": "requied field <tag>"}), 409
 
-
-@profile_bp.route("/update_profile_picture", methods=["POST"])
-@auth_guard
-def update_profile_picture():
-    try:
-        requested_file = request.files['profile_pic'] if request.files else None
-        profile_path = upload_profile_picture(requested_file, g.user_id)
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        profile_crud = Profile(connection_pool)
-        if not  connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        profile_crud.update_profile(g.user_id, {"profile_picture": profile_path})
-    except BadRequestKeyError:
-        return jsonify({"error": "KeyError, file must be stored with key = profile_pic"}), 415
-    except Exception as e:
-        return jsonify({"error": e}), 409
-
-
-# @profile_bp.route("/upload_images", methods=["POST"])
-# @auth_guard
-# def update_profile_picture():
-#     try:
-#         requested_file = request.files['images'] if request.files else None
-#         profile_path = upload_profile_picture(requested_file, g.user_id)
-#         connection_pool = current_app.config["CONNECTION_POOL"]
-#         profile_crud = Profile(connection_pool)
-#         if not  connection_pool:
-#             return jsonify({"error": "Database connection pool is not available"}), 500
-#         profile_crud.update_profile(g.user_id, {"profile_picture": profile_path})
-#     except BadRequestKeyError:
-#         return jsonify({"error": "KeyError, file must be stored with key = file"}), 415
-#     except Exception as e:
-#         return jsonify({"error": e}), 409
-
-
-
-
-@profile_bp.route("/test", methods=["POST"])
-@auth_guard
-def test():
-    # request_data = request.json
-    logger.debug(f"🔍🔍🔍🔍🔍🔍{request.form}")
-
-    logger.debug(f"👉👉👉👉👉{request.files['file']}👈👈👈👈👈")
-    
-        # return jsonify({"error": "wrong format!"}), 400
-    #TODO CHECK ON THE EXTENSION OF THE FILE IT MUST BE JPG/JPEG/PNG ONLY
-
-    
-    
-    return jsonify({"status": "ok"})
-    # connection_pool = current_app.config["CONNECTION_POOL"]
-    # if not connection_pool:
-    #     return jsonify({"error": "Database connection pool is not available"}), 500
-    # profile_crud = Profile(connection_pool)
-    # user_crud = User(connection_pool)

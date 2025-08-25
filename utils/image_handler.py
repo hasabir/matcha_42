@@ -17,11 +17,16 @@ def check_allowed_file(filename):
 
 
 
-def upload_profile_picture(requested_file, user_id):
+def upload_pictures(requested_file, user_id, is_profile_picture=True):
     try:
-        if not requested_file or requested_file.filename == '':
+        if (not requested_file\
+            or requested_file.filename == '')\
+            and is_profile_picture:
             return "static/profiles/default_profile.jpg"
-        user_folder = f"static/profiles/pofile_picture/{user_id}"
+        if is_profile_picture:
+            user_folder = f"static/profiles/{user_id}/pofile_picture/"
+        else:
+            user_folder = f"static/profiles/{user_id}/images"
         file_name = requested_file.filename
         check_allowed_file(filename=file_name)
         filename = secure_filename(file_name)
@@ -31,3 +36,17 @@ def upload_profile_picture(requested_file, user_id):
         return file_path
     except Exception as e:
         raise Exception(e)
+
+
+# def upload_profile_images(requested_image, user_id):
+#     try:
+#         user_folder = f"static/profiles/pofile_picture/{user_id}"
+#         file_name = requested_image.filename
+#         check_allowed_file(filename=file_name)
+#         filename = secure_filename(file_name)
+#         os.makedirs(user_folder, exist_ok=True)
+#         file_path = os.path.join(user_folder, filename)
+#         requested_image.save(file_path)
+#         return file_path
+#     except Exception as e:
+#         raise Exception(e)

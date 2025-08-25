@@ -75,3 +75,20 @@ class Profile(DBManager):
         
         logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
         return name_tags
+    
+    
+    def insert_images(self, image_path, user_id):
+        try:
+            self.insert("images", {"user_id" : user_id,
+                                    "image_path": image_path},
+                        on_conflict="nothing")
+        except Exception as e:
+            raise Exception(e)
+    
+    def get_images(self, user_id):
+        logger = logging.getLogger(__name__)
+        
+        result = self.select('images', "image_url", where="user_id = %s", where_params=(user_id,))
+
+        return [image['image_url'] for image in result]
+    
