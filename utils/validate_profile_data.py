@@ -9,11 +9,11 @@ def validate_profile_data(request_data):
     
     # Define required fields with validation rules
     required_fields = {
-        'bio': {'min_length': 10, 'max_length': 500},
+        'bio': {'min_length': 0, 'max_length': 500},
         'gender': {'allowed_values': ['Male', 'Female', 'Non-binary', 'Other']},
         'age': {'min_value': 18, 'max_value': 120},
         'location': {'min_length': 2, 'max_length': 100},
-        'profile_picture': {'type': 'text'}, 
+        # 'profile_picture': {'type': 'text'}, 
         'sexual_preferences': {'allowed_values': ['Men', 'Women', 'Both', 'All']}
     }
     logger.debug(f"⚠️⚠️⚠️ request data -> {request_data} ⚠️⚠️⚠️")
@@ -34,7 +34,7 @@ def validate_profile_data(request_data):
         value = request_data[field]
         
         # Check if field is empty
-        if not value:
+        if field != "bio" and not value:
             errors.append(f"{field} cannot be empty")
             continue
             
@@ -59,10 +59,10 @@ def validate_profile_data(request_data):
             if 'allowed_values' in rules and value not in rules['allowed_values']:
                 errors.append(f"{field} must be one of: {', '.join(rules['allowed_values'])}")
                 
-        elif field == 'profile_picture':
-            # Simple URL validation
-            if 'type' in rules and rules['type'] == 'url':
-                if not value.startswith(('http://', 'https://')):
-                    errors.append("profile_picture must be a valid URL")
+        # elif field == 'profile_picture':
+        #     # Simple URL validation
+        #     if 'type' in rules and rules['type'] == 'url':
+        #         if not value.startswith(('http://', 'https://')):
+        #             errors.append("profile_picture must be a valid URL")
     
     return errors
