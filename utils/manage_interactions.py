@@ -11,10 +11,11 @@ class ManageInteractions():
 
     def check_action(self, user_id, liked_id):
         liked_users = self.interactions_crud.get_user_likes()
-        if not liked_users or liked_id != liked_users['liked_id']:
-            logger.debug(f"👉👉👉👉{liked_users}👈👈👈👈")
+        logger.debug(f"👉👉👉👉{liked_users}👈👈👈👈")
+        if not liked_users or liked_id not in liked_users:
             return "like"
-        matchin_crud = Matching(self.connection_pool)
-        matched_users = matchin_crud.get_matched_users(user_id)
-        # if matched_users and 
+        matching_crud = Matching(self.connection_pool)
+        matched_users_ids = matching_crud.get_matched_users(user_id)
+        if matched_users_ids and liked_id in matched_users_ids:
+            matching_crud.unmatche(user_id, liked_id)
         return "dislike"

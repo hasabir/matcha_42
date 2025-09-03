@@ -25,4 +25,11 @@ class Interactions(DBManager):
     def get_user_likes(self):
         result = self.select('likes', columns='liked_id',
                              where='liker_id = %s', where_params=(self.user_id, ))
-        return result[0] if result else None
+        # return result[0] if result else None
+        return [row['liked_id'] for row in result]
+    
+    def get_user_likers(self):
+        result = self.select('likes', columns='liker_id',
+                             where='liked_id = %s', where_params=(self.user_id, ))
+        # return result[0] if result else None
+        return [row['liker_id'] for row in result]

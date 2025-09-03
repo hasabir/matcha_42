@@ -41,14 +41,42 @@ def like_dislike():
             return jsonify({"error": "liked user does not exist"}), 409
         interactions_crud = Interactions(connection_pool, g.user_id, liked_user_data["id"])
         manage_interactions = ManageInteractions(connection_pool, interactions_crud)
-        if manage_interactions.check_action(g.user_id, liked_user_data["id"]) == "like":
+        action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
+        if action == "like":
             interactions_crud.like_user()
         else:
             interactions_crud.dislike_user()
         return jsonify({"status": "ok",
-                        "message": f"likded user id = {liked_user_data}\
-                        other username = {requested_data["liked_user"]}"}), 201
+                        "message": f"user has {action} {requested_data["liked_user"]}"}), 201
     except Exception as e:
         return jsonify({"error": e}), 400
+
+@interactions_bp.route("/get_users/<interaction_type>")
+@auth_guard
+def get_user_likes(interaction_type):
+    try:
+        if interaction_type not in ["liked", "likers"]:
+            return jsonify({"error": "Interaction type undifined it \
+                must be either <liked> to see what the user liked \
+                    or <likers> to see who liked the user"})
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        interactions_crud = Interactions(connection_pool, g.user_id, None)
+        user_crud = User(connection_pool)
+        if interaction_type == "liked":
+            user_ids = interactions_crud.get_user_likes()
+        else:
+            user_ids = interactions_crud.get_user_likers()
+
+        usernames = []
+        for user_id in user_ids:
+            username = user_crud.get_user_by('id', user_id, "username")
+            usernames.append(username)
+        
+        return jsonify({"result": usernames}), 200
+        
+    except Exception as e:
+        return jsonify({"error": e})
 
 
