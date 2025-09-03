@@ -140,7 +140,7 @@ class DBManager:
             
         logger = logging.getLogger(__name__)
         # Get a connection for as_string (for debugging only, not for execution)
-        conn = self.pool.getconn()
+        # conn = self.pool.getconn()
         # try:
         #     logger.debug(f"👉 👉 👉 👉 👉 👉 query = {query.as_string(conn)}")
         # finally:

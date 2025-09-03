@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     first_name TEXT,
     last_name TEXT,
-    location TEXT, --TODO -> does it need to be here or in the profile?
+    location , --TODO -> does it need to be here or in the profile?
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     verification_token TEXT, 
     verified BOOLEAN DEFAULT FALSE, 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     age INTEGER,
     gender TEXT,
     sexual_preferences TEXT,
-    location TEXT,
+    user_location TEXT,
     fame_rating INTEGER DEFAULT 0,
     profile_picture TEXT
 );

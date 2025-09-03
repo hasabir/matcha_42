@@ -12,7 +12,7 @@ from src.user_profile import profile_bp
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 import jwt
-# from src.discovery import discovery_bp
+# from src.search import search_bp
 # from src.interactions import interactions_bp
 # from src.chat import messaging_bp
 # from src.notification import notifications_bp
@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(profile_bp, url_prefix='/api/profile')
-    # app.register_blueprint(discovery_bp, url_prefix='/api/discovery')
+    # app.register_blueprint(search_bp, url_prefix='/api/search')
     # app.register_blueprint(interactions_bp, url_prefix='/api/interactions')
     # app.register_blueprint(messaging_bp, url_prefix='/api/messaging')
     # app.register_blueprint(notifications_bp, url_prefix='/api/notifications')

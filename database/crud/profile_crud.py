@@ -80,8 +80,8 @@ class Profile(DBManager):
     def insert_images(self, image_path, user_id):
         try:
             self.insert("images", {"user_id" : user_id,
-                                    "image_path": image_path},
-                        on_conflict="nothing")
+                                    "image_url": image_path})
+                        # on_conflict="nothing")
         except Exception as e:
             raise Exception(e)
     

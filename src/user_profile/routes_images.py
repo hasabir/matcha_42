@@ -47,18 +47,18 @@ def upload_images():
         if not uploaded_files or uploaded_files == []:
             return jsonify({"error": "No files uploaded"}), 400
 
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        profile_crud = Profile(connection_pool)
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
         image_paths = []
         for file in uploaded_files:
             path = upload_pictures(file, g.user_id)
             url_path = url_for('static', filename=path)
             profile_crud.insert_images(url_path, g.user_id)
             image_paths.append(url_path)
-
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        profile_crud = Profile(connection_pool)
-        if not  connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
         return jsonify({"status": "ok", "image_paths": image_paths}), 200
+
     except BadRequestKeyError:
         return jsonify({"error": "KeyError, files must be stored with key = images"}), 415
     except Exception as e:
