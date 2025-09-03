@@ -54,6 +54,8 @@ class Profile(DBManager):
         return self.insert(table='user_tags', data={"user_id": user_id,
                                          "tag_id": tag_id},
                            on_conflict="nothing")
+        
+        
     def remove_user_interest(self, user_id, tag_id):
         return self.delete(
                 table='user_tags',
@@ -73,7 +75,7 @@ class Profile(DBManager):
         
         name_tags = [tag['tag_name'] for tag in name_results]
         
-        logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
+        # logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
         return name_tags
     
     

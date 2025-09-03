@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     first_name TEXT,
     last_name TEXT,
-    location , --TODO -> does it need to be here or in the profile?
+    -- location , --TODO -> does it need to be here or in the profile?
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     verification_token TEXT, 
     verified BOOLEAN DEFAULT FALSE, 
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS likes (
 -- Connections Table
 CREATE TABLE IF NOT EXISTS connections (
     user1_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    user2_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    user2_id INT REFERENCES users(id) ON DELETE CASCADE,  --!needs to be changed to other_user
     connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user1_id, user2_id)
 );

@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 from utils.security import SecurityUtils
 logging.basicConfig(level=logging.INFO)
 
+logger = logging.getLogger(__name__)
 class User(DBManager):
     def __init__(self, connection_pool):
         super().__init__(connection_pool)
@@ -22,21 +23,19 @@ class User(DBManager):
         logging.debug(f"****************************Updating user set_data: {set_data}")
         return self.update('users', set_data, where="username = %s", where_params=(username,))
 
-    def delete_user(self, user_id):
-        """Delete a user by ID"""
-        return self.delete('users', where='id = %s', where_params=(user_id,))
+    # def delete_user(self, user_id):
+    #     """Delete a user by ID"""
+    #     return self.delete('users', where='id = %s', where_params=(user_id,))
 
-
-    def get_user_by_id(self, user_id):
-        """Retrieve user by ID"""
-        return self.select('users', where='id = %s', params=(user_id,))
-    
 
     def get_user_by_username(self, username, user_id=None):
         if username:
+            
             result = self.select('users', where="username = %s", where_params=(username,))
+            logger.info(f"⚡ result = {result}")
         else:
             result = self.select('users', where="user_id = %s", where_params=(user_id,))
+            logger.info(f"⚡⚡⚡ result = {result}")
             
         return result[0] if result else None
 

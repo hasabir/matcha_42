@@ -185,12 +185,10 @@ def refresh():
         refresh_token = request.cookies.get('refresh_token')
         
         # Verify refresh token and issue new access token
-        logger.info(f"👉 refresh token -> {refresh_token}")
         payload = SecurityUtils.verify_jwt_token(refresh_token)
         
         if not payload or 'error' in payload:
             return jsonify({'error': 'Invalid or expired token'}), 403
-        logger.info(f"⚡ {payload} ->")
         new_access_token = SecurityUtils.generate_access_token(g.user_id)
         if 'error' in payload:
             return jsonify({'error': payload['error']}), 403

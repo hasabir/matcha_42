@@ -82,7 +82,6 @@ def auth_guard(f):
         if not payload:
             return jsonify({'error': 'Invalid or expired token'}), 403
         
-        logger.info(f"⚡ {payload} ->")
         # Add user_id to request context for use in the route
         if 'error' in payload:
             return jsonify({'error': payload['error']}), 403

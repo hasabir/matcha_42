@@ -104,7 +104,7 @@ class DBManager:
             )
             params.extend(in_params)
 
-        logging.info("Executing select query: %s with params: %s", query, params)
+        logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
         return self.execute(query, params if params else None)
 
 
