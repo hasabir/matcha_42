@@ -131,19 +131,23 @@ def get_user_images(username):
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
-        
+
         profile_crud = Profile(connection_pool)
         user_crud = User(connection_pool)
-        user_data = user_crud.get_user_by_username(username=username)
+        if username != "me":
+            user_data = user_crud.get_user_by_username(username=username)
+        else:
+            return jsonify({"error": "username parameter is required"}), 400
         if not user_data:
             return jsonify({"error": "user not found"}), 404
 
         #TODO check first if the user is not blocked then continue
 
         user_images = profile_crud.get_images(user_data["id"])
-        
+
         return jsonify({"result": user_images}), 200
-        
+
+
     except KeyError:
         return jsonify({"error": "Profile picture not found in database"}), 404
     except Exception as e:

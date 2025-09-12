@@ -3,9 +3,7 @@ from flask import g, current_app
 import uuid
 from psycopg2 import sql
 import psycopg2.extras
-import sqlparse
 
-import sqlparse
 from psycopg2 import sql  # Required for proper SQL composition
 logging.basicConfig(level=logging.DEBUG)
 

@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 def create_profile():
     try:
         request_data = request.form.to_dict()
+        logger.debug(f"⚠️⚠️⚠️🔍 request data -> {request_data} ⚠️⚠️⚠️")
+
         request_data["user_id"] = g.user_id
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
