@@ -1,5 +1,0 @@
-psycopg2-binary
-Django
-django-debug-toolbar
-dj-database-url
-django-environ

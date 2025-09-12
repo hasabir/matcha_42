@@ -1,0 +1,122 @@
+/* Base container styling */
+.account-settings-container {
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+/* Settings content area (no page-specific navbar) */
+.settings-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  flex: 1;
+}
+
+.back-btn {
+  background-color: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Main heading */
+h1 {
+  margin-bottom: 1.75rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Sections */
+.settings-section {
+  margin-bottom: 2rem;
+}
+
+.settings-section h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Inputs */
+.settings-section input,
+.settings-section textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  font-size: 0.95rem;
+  background-color: #f8fafc;
+  margin-bottom: 1rem;
+}
+
+.settings-section textarea {
+  resize: vertical;
+}
+
+/* Generic label (for text inputs etc.) */
+.settings-section label {
+  display: block;
+  font-size: 0.95rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+/* Action buttons aligned to the right */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.update-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.375rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.update-btn:hover {
+  background-color: #1e4dd8;
+}
+
+/* ===== Notification Preferences (checkboxes) ===== */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;           /* vertical spacing between rows */
+  margin-top: 0.25rem;
+}
+
+.checkbox-group label {
+  display: flex;          /* align input + text on one line */
+  align-items: center;
+  gap: 0.5rem;            /* space between checkbox and text */
+  margin: 0;              /* override generic label margin */
+  cursor: pointer;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;  /* modern browsers */
+}
+
+/* Small screens */
+@media (max-width: 640px) {
+  .settings-content { padding: 1.5rem 1rem; }
+  h1 { font-size: 1.45rem; }
+  .settings-section h2 { font-size: 1.1rem; }
+}

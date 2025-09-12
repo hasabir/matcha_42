@@ -1,0 +1,163 @@
+/* Overall page container */
+.discover-container {
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+/* Discover content area */
+.discover-content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.discover-content h1 {
+  margin-bottom: 1rem;
+  font-size: 1.75rem;
+  color: #111827;
+}
+
+/* ─── Filter Panel ─────────────────────────────── */
+.filter-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  background: #fff;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-col label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #111827;
+}
+
+.range-2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.range-2 input {
+  width: 110px;
+}
+
+/* ─── Chips (tags) ─────────────────────────────── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  border: 1px solid #e5e7eb;
+  background: #f1f5f9;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #374151;
+}
+
+.chip.selected {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+/* ─── Map ─────────────────────────────── */
+.map-wrap {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.leaflet-map {
+  height: 280px;
+  width: 100%;
+}
+
+.radius-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* ─── User Grid ─────────────────────────────── */
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.user-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.avatar-wrapper img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.user-info {
+  padding: 0.8rem 1rem;
+}
+
+.user-info .meta {
+  color: #6b7280;
+  margin: 0.2rem 0 0.5rem;
+}
+
+.tags-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mini-chip {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  background: #eef2ff;
+  color: #374151;
+  border-radius: 9999px;
+}
+
+.empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 1.25rem 0;
+}
+
+/* ─── Responsive ─────────────────────────────── */
+@media (max-width: 900px) {
+  .users-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .filter-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .users-grid {
+    grid-template-columns: 1fr;
+  }
+}
