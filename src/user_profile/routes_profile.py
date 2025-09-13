@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 @profile_bp.route("/create_profile", methods=["POST"])
 @auth_guard
 def create_profile():
+    '''create a profile for the logged in user
+    Expects a multipart/form-data request with profile fields and an optional 'profile_pic' file.
+    Example fields: bio, age, sexual_preferences, gender
+    '''
     try:
         request_data = request.form.to_dict()
         logger.debug(f"⚠️⚠️⚠️🔍 request data -> {request_data} ⚠️⚠️⚠️")
@@ -58,6 +62,9 @@ def create_profile():
 @profile_bp.route("/update_profile", methods=['POST'])
 @auth_guard
 def update_profile():
+    '''update the profile for the logged in user
+    Expects a json body with profile fields to update.'''
+
     request_data = request.json
     connection_pool = current_app.config["CONNECTION_POOL"]
     if not connection_pool:
@@ -87,6 +94,7 @@ def update_profile():
 @profile_bp.route("/search_profile/<username>")
 @auth_guard
 def get_profile(username):
+    '''get the profile of a user by username '''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not  connection_pool:
@@ -98,6 +106,7 @@ def get_profile(username):
             return jsonify({"error": "user not found"}), 404
 
         #TODO check first if the user is not blocked then continue
+        #TODO return intersts and images also
 
         profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
         profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])

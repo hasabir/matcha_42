@@ -22,6 +22,9 @@ from src.interactions import interactions_bp
 @interactions_bp.route("/like_dislike", methods=["POST"])
 @auth_guard
 def like_dislike():
+    '''Endpoint to like or dislike a user.
+    Expects JSON body with key 'liked_user' containing the username of the user to like or dislike.
+    '''
     try:
         requested_data = request.json
         #TODO validate request data
@@ -54,6 +57,9 @@ def like_dislike():
 @interactions_bp.route("/get_users/<interaction_type>")
 @auth_guard
 def get_user_likes(interaction_type):
+    '''Endpoint to get users that the current user has liked or users that have liked the current user.
+    interaction_type must be either 'liked' or 'likers'.
+    '''
     try:
         if interaction_type not in ["liked", "likers"]:
             return jsonify({"error": "Interaction type undifined it \

@@ -16,6 +16,7 @@ import jwt
 from src.interactions import interactions_bp
 # from src.chat import messaging_bp
 # from src.notification import notifications_bp
+from docs import docs_bp
 
 
 if __name__ == '__main__':
@@ -46,6 +47,7 @@ if __name__ == '__main__':
             
             
 
+    app.register_blueprint(docs_bp, url_prefix='/api/docs')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(profile_bp, url_prefix='/api/profile')
     # app.register_blueprint(search_bp, url_prefix='/api/search')

@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 @profile_bp.route("/update_profile_picture", methods=["POST"])
 @auth_guard
 def update_profile_picture():
+    '''upload a new profile picture for the logged in user
+    Expects a file in the 'profile_pic' field of the form data.
+    '''
     try:
         requested_file = request.files['profile_pic'] if request.files else None
         profile_path = upload_pictures(requested_file, g.user_id)
@@ -39,6 +42,9 @@ def update_profile_picture():
 @profile_bp.route("/upload_images", methods=["POST"])
 @auth_guard
 def upload_images():
+    '''upload multiple images for the logged in user
+        Expects files in the 'images' field of the form data.
+        '''
     try:
         if 'images' not in request.files:
             return jsonify({"error": "No files uploaded or required filed name is not correct <images>"}), 400
@@ -66,35 +72,37 @@ def upload_images():
         return jsonify({"error": str(e)}), 409
 
 # url_for('static', filename=relative_path)
-@profile_bp.route("/get_profile_pic")
-@auth_guard
-def get_profile_pic():
-    try:
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
+# @profile_bp.route("/get_profile_pic")
+# @auth_guard
+# def get_profile_pic():
+#     try:
+#         connection_pool = current_app.config["CONNECTION_POOL"]
+#         if not connection_pool:
+#             return jsonify({"error": "Database connection pool is not available"}), 500
         
-        profile_crud = Profile(connection_pool)
-        profile_data = profile_crud.get_profile_by_user_id(g.user_id)
+#         profile_crud = Profile(connection_pool)
+#         profile_data = profile_crud.get_profile_by_user_id(g.user_id)
         
-        image_path = profile_data["profile_picture"]
+#         image_path = profile_data["profile_picture"]
         
-        if not os.path.isfile(image_path):
-            return jsonify({"error": "Profile picture not found"}), 404
+#         if not os.path.isfile(image_path):
+#             return jsonify({"error": "Profile picture not found"}), 404
         
-        return send_file(image_path)
+#         return send_file(image_path)
         
-    except KeyError:
-        return jsonify({"error": "Profile picture not found in database"}), 404
-    except Exception as e:
-        current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+#     except KeyError:
+#         return jsonify({"error": "Profile picture not found in database"}), 404
+#     except Exception as e:
+#         current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
+#         return jsonify({"error": "Internal server error"}), 500
 
 
 
-@profile_bp.route("/get_user_profile_pic/<username>")
+@profile_bp.route("/get_profile_pic/<username>")
 @auth_guard
 def get_user_profile_pic(username):
+    '''get the profile picture of a user,
+     if username is "me" get the profile picture of the logged in user'''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not  connection_pool:
@@ -124,55 +132,36 @@ def get_user_profile_pic(username):
 
 
 
-@profile_bp.route("/get_user_images/<username>")
+@profile_bp.route("/get_images/<username>")
 @auth_guard
-def get_user_images(username):
+def get_images(username):
+    '''get all images of a user,
+     if username is "me" get the images of the logged in user'''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
 
         profile_crud = Profile(connection_pool)
+        if username == "me":
+            user_images = profile_crud.get_images(g.user_id)
+            return jsonify({"result": user_images}), 200
+        
         user_crud = User(connection_pool)
-        if username != "me":
-            user_data = user_crud.get_user_by_username(username=username)
-        else:
-            return jsonify({"error": "username parameter is required"}), 400
+        user_data = user_crud.get_user_by_username(username=username)
         if not user_data:
             return jsonify({"error": "user not found"}), 404
 
         #TODO check first if the user is not blocked then continue
-
         user_images = profile_crud.get_images(user_data["id"])
 
         return jsonify({"result": user_images}), 200
 
-
     except KeyError:
         return jsonify({"error": "Profile picture not found in database"}), 404
+    
     except Exception as e:
         current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 
-@profile_bp.route("/get_my_images")
-@auth_guard
-def get_my_images():
-    try:
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        
-        profile_crud = Profile(connection_pool)
-
-        #TODO check first if the user is not blocked then continue
-
-        user_images = profile_crud.get_images(g.user_id)
-
-        return jsonify({"result": user_images}), 200
-        
-    except KeyError:
-        return jsonify({"error": "Profile picture not found in database"}), 404
-    except Exception as e:
-        current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500

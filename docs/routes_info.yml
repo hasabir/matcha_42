@@ -1,0 +1,60 @@
+routes:
+  - endpoint: "/api/profile/update_profile_picture"
+    methods: ["POST"]
+    protected: true
+    description: "Upload a new profile picture for the logged in user. Expects a file in the 'profile_pic' field of the form data."
+
+  - endpoint: "/api/profile/upload_images"
+    methods: ["POST"]
+    protected: true
+    description: "Upload multiple images for the logged in user. Expects files in the 'images' field of the form data."
+
+  - endpoint: "/api/profile/get_profile_pic/<username>"
+    methods: ["GET"]
+    protected: true
+    description: "Get the profile picture of a user. If username is 'me' get the profile picture of the logged in user."
+
+  - endpoint: "/api/profile/get_images/<username>"
+    methods: ["GET"]
+    protected: true
+    description: "Get all images of a user. If username is 'me' get the images of the logged in user."
+
+  - endpoint: "/api/profile/add_tags"
+    methods: ["POST"]
+    protected: true
+    description: "Add interest tags for the logged in user. Expects a json body with a 'tags' field containing a list of tags."
+
+  - endpoint: "/api/profile/delete_tag"
+    methods: ["POST"]
+    protected: true
+    description: "Remove an interest tag for the logged in user. Expects a json body with a 'tag' field containing a single tag."
+
+  - endpoint: "/api/profile/get_user_tags"
+    methods: ["GET"]
+    protected: true
+    description: "Get interest tags for the logged in user."
+
+  - endpoint: "/api/profile/create_profile"
+    methods: ["POST"]
+    protected: true
+    description: "Create a profile for the logged in user. Expects a multipart/form-data request with profile fields and an optional 'profile_pic' file."
+
+  - endpoint: "/api/profile/update_profile"
+    methods: ["POST"]
+    protected: true
+    description: "Update the profile for the logged in user. Expects a json body with profile fields to update."
+
+  - endpoint: "/api/profile/search_profile/<username>"
+    methods: ["GET"]
+    protected: true
+    description: "Get the profile of a user by username."
+
+  - endpoint: "/api/interactions/like_dislike"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to like or dislike a user. Expects JSON body with key 'liked_user' containing the username of the user to like or dislike."
+
+  - endpoint: "/api/interactions/get_users/<interaction_type>"
+    methods: ["GET"]
+    protected: true
+    description: "Endpoint to get users that the current user has liked or users that have liked the current user. interaction_type must be either 'liked' or 'likers'."
