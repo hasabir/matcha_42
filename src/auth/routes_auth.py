@@ -197,21 +197,3 @@ def refresh():
         return jsonify({"error": e}), 403
 
 
-
-
-
-
-
-
-
-@auth_bp.route("/drop")
-def drop_tables():
-    """Drop all tables in the database."""
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    if not connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    
-    user_crud = User(connection_pool)
-    user_crud.delet_all_users()
-    
-    return jsonify({"status": "ok", "message": "All tables dropped successfully"}), 200
