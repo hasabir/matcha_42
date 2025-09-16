@@ -62,3 +62,27 @@ class Location(DBManager):
         """Retrieve user location by user ID"""
         result = self.select('user_locations', where="user_id = %s", where_params=(user_id,))
         return result[0] if result else None
+    
+    
+    
+    
+    
+# SELECT 
+#     u.id,
+#     u.username,
+#     ROUND(
+#         ST_Distance(
+#             ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
+#             ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography
+#         ) / 1000, 1
+#     ) AS distance_km  -- Rounded to 1 decimal place
+# FROM user_locations ul1
+# JOIN user_locations ul2 ON ul2.user_id != ul1.user_id
+# JOIN users u ON u.id = ul2.user_id
+# WHERE ul1.user_id = 1
+# AND ST_DWithin(
+#     ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
+#     ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography,
+#     100000
+# )
+# ORDER BY distance_km ASC;
