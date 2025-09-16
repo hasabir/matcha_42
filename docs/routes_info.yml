@@ -43,6 +43,18 @@ routes:
     methods: ["POST"]
     protected: true
     description: "Update the profile for the logged in user. Expects a json body with profile fields to update."
+  
+  - endpoint: "/api/profile/set_location"
+    methods: ["POST"]
+    protected: true
+    description: |
+      Set or update the geographical location for the logged-in user.
+      Expects a JSON payload with the following fields:
+        - latitude (float): Required. Latitude of the user's location.
+        - longitude (float): Required. Longitude of the user's location.
+        - city (string): Optional. City name.
+        - country (string): Optional. Country name.
+        - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
 
   - endpoint: "/api/profile/search_profile/<username>"
     methods: ["GET"]

@@ -7,6 +7,9 @@ from utils.security import SecurityUtils
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
+
+
+
 class User(DBManager):
     def __init__(self, connection_pool):
         super().__init__(connection_pool)

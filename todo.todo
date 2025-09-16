@@ -1,1 +1,9 @@
-[ ] 
+[ ] Profile:
+    [ ] check if user is not blocked before searching profile
+    [ ] return images of the user profile
+    [ ] return image url in the profile
+    [ ] test all the image routes
+
+[] geo location Table Schema
+[] create location Table
+[] set location for user
