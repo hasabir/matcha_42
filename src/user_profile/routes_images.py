@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
+from database.crud.interactions_crud import Interactions
 from utils.validate_profile_data import validate_profile_data
 from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
@@ -109,26 +110,30 @@ def get_user_profile_pic(username):
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
 
-        #TODO check first if the user is not blocked then continue
-        
+
         if username == "me":
             profile_data = profile_crud.get_profile_by_user_id(g.user_id)
-            logger.debug(f"⚠️⚠️⚠️🔍 request data -> {profile_data} ⚠️⚠️⚠️")
 
         else:
             user_crud = User(connection_pool)
             user_data = user_crud.get_user_by_username(username=username)
             if not user_data:
                 return jsonify({"error": "user not found"}), 404
+            interactions_crud = Interactions(connection_pool, g.user_id, user_data["id"])
+            
+            if interactions_crud.is_blocked():
+                return jsonify({"error": "You are blocked by this user"}), 403
             profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
 
         return jsonify({"status": "ok", "result": profile_data["profile_picture"]})
+
+
 
     except KeyError:
         return jsonify({"error": "Profile picture not found in database"}), 404
     except Exception as e:
         current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": e}), 409
 
 
 
@@ -153,7 +158,11 @@ def get_images(username):
         if not user_data:
             return jsonify({"error": "user not found"}), 404
 
-        #TODO check first if the user is not blocked then continue
+        interactions_crud = Interactions(connection_pool, g.user_id, user_data["id"])
+            
+        if interactions_crud.is_blocked():
+            return jsonify({"error": "You are blocked by this user"}), 403
+        
         user_images = profile_crud.get_images(user_data["id"])
 
         return jsonify({"result": user_images}), 200
@@ -163,7 +172,7 @@ def get_images(username):
     
     except Exception as e:
         current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": e}), 409
 
 
 @profile_bp.route("/delete_image/<image_id>", methods=["DELETE"])
@@ -192,4 +201,4 @@ def delete_image(image_id):
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         current_app.logger.error(f"Error deleting image: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": e}), 409

@@ -7,6 +7,7 @@ from werkzeug.exceptions import BadRequestKeyError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 
+from database.crud.interactions_crud import Interactions
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
 from utils.validate_profile_data import validate_profile_data
@@ -94,4 +95,46 @@ def get_nearby_users():
         
     except Exception as e:
         logger.error(f"Error finding nearby users: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+
+
+@profile_bp.route("/get_location/<username>", methods=["GET"]) #?
+@auth_guard
+def get_user_location(username):
+    '''Retrieve the geographical location of a specified user by username.
+    If username is "me", retrieve the location of the logged-in user.
+    '''
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        from database.crud.location_crud import Location
+        location_crud = Location(connection_pool)
+
+        if username == "me":
+            user_id = g.user_id
+        else:
+            user_crud = User(connection_pool)
+            user_data = user_crud.get_user_by_username(username=username)
+            if not user_data:
+                return jsonify({"error": "User not found"}), 404
+            user_id = user_data["id"]
+            interactions_crud = Interactions(connection_pool, g.user_id, user_id)
+            if interactions_crud.is_blocked():
+                return jsonify({"error": "You are blocked by this user"}), 403
+
+        location_data = location_crud.get_user_location(user_id)
+        if not location_data:
+            return jsonify({"error": "Location data not found for the user"}), 404
+
+        return jsonify({
+            "status": "ok",
+            "location": location_data
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error retrieving user location: {e}")
         return jsonify({"error": "Internal server error"}), 500

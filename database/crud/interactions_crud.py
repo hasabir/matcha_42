@@ -2,6 +2,7 @@ import logging
 from ..dbmanager import DBManager
 from psycopg2 import sql
 
+logger = logging.getLogger(__name__)
 
 class Interactions(DBManager):
     def __init__(self, connection_pool, user_id, other_user_id):
@@ -36,3 +37,16 @@ class Interactions(DBManager):
                              where='liked_id = %s', where_params=(self.user_id, ))
         # return result[0] if result else None
         return [row['liker_id'] for row in result]
+    
+    def is_liked_by(self):
+        result = self.select('likes', columns='liker_id',
+                             where='liker_id = %s AND liked_id = %s',
+                             where_params=(self.other_user_id, self.user_id))
+        return bool(result)
+    
+    def is_blocked(self):
+        result = self.select('blocks', columns='blocker_id',
+                             where='blocker_id = %s AND blocked_id = %s',
+                             where_params=(self.other_user_id, self.user_id))
+        logger.debug(f"👉👉👉👉Blocked check result: {result}👈👈👈👈")
+        return bool(result)

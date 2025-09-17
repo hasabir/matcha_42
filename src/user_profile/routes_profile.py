@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app, g, send_file, url_for
+from database.crud.interactions_crud import Interactions
+from database.crud.location_crud import Location
 from database.crud.user_crud import User
 from src.user_profile import profile_bp
 import sys
@@ -72,7 +74,7 @@ def update_profile():
     profile_crud = Profile(connection_pool)
     user_crud = User(connection_pool)
     
-    user_fields = ["first_name", "last_name"] #! location?
+    user_fields = ["first_name", "last_name"]
     user_data = {}
     for item in user_fields:
         if item in request_data:
@@ -94,24 +96,36 @@ def update_profile():
 @profile_bp.route("/search_profile/<username>")
 @auth_guard
 def get_profile(username):
-    '''get the profile of a user by username '''
+    '''get the profile of a user by username if username is "me" get the profile of the logged in user'''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
+        
+        if username == "me":
+            profile_data = profile_crud.get_profile_by_user_id(g.user_id)
+            profile_data["tags"] = profile_crud.get_user_interests(g.user_id)
+            profile_data["images"] = profile_crud.get_images(g.user_id)
+            return jsonify({"result": profile_data}), 200
+
         user_crud = User(connection_pool)
-        
-        
         user_data = user_crud.get_user_by_username(username=username)
         if not user_data:
             return jsonify({"error": "user not found"}), 404
 
-        #TODO check first if the user is not blocked then continue
-        #TODO return intersts and images also
+        interactions_crud = Interactions(connection_pool, g.user_id, user_data["id"])
+            
+        if interactions_crud.is_blocked():
+            return jsonify({"error": "You are blocked by this user"}), 403
 
         profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
         profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
+        profile_data["images"] = profile_crud.get_images(user_data["id"])
+        profile_data["first_name"] = user_data["first_name"]
+        profile_data["last_name"] = user_data["last_name"]
+        profile_data["username"] = user_data["username"]
+        profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
         return jsonify({"result": profile_data}), 200
     except Exception as e:
         return jsonify({"error": "requied field <tag>"}), 409

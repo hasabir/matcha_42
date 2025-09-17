@@ -64,6 +64,14 @@ routes:
         - country (string): Optional. Country name.
         - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
 
+  - endpoint: "/api/profile/get_location/<username>"
+    methods: ["GET"]
+    protected: true
+    description: |
+      Retrieve the geographical location of a specified user by username.
+      If the username is "me", retrieve the location of the logged-in user.
+      Returns latitude, longitude, city, country, and accuracy.
+
   - endpoint: "/api/profile/nearby_users"
     methods: ["GET"]
     protected: true
