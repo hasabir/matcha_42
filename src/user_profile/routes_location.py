@@ -64,6 +64,8 @@ def set_location():
     except Exception as e:
         logger.error(f"Error setting location: {e}")
         return jsonify({"error": "Internal server error"}), 500
+    
+    
 
 @profile_bp.route("/nearby_users", methods=["GET"])
 @auth_guard

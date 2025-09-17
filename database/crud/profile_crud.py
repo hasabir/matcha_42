@@ -38,7 +38,7 @@ class Profile(DBManager):
 
     def insert_tag(self, tag_name):
         try:
-            self.insert('tags', {"tag_name": tag_name}, "nothing")
+            self.insert('tags', {"tag_name": tag_name}, "nothing", ["tag_name"])
             return self.get_tag_id(tag_name)
         except Exception as e:
             raise Exception(e)
@@ -51,9 +51,12 @@ class Profile(DBManager):
 
 
     def add_user_interests(self, user_id, tag_id):
-        return self.insert(table='user_tags', data={"user_id": user_id,
-                                         "tag_id": tag_id},
-                           on_conflict="nothing")
+        return self.insert(
+                table='user_tags', 
+                data={"user_id": user_id, "tag_id": tag_id},
+                on_conflict="nothing",
+                conflict_target=["user_id", "tag_id"]
+            )
         
         
     def remove_user_interest(self, user_id, tag_id):
@@ -94,3 +97,16 @@ class Profile(DBManager):
 
         return [image['image_url'] for image in result]
     
+    
+    def delete_image(self, user_id, image_id):
+        return self.delete(
+            table='images',
+            where="user_id = %s AND image_id = %s",
+            where_params=(user_id, image_id)
+        )
+    
+    def verify_image_ownership(self, user_id, image_id):
+        result = self.select('images', "image_id", where="user_id = %s AND image_id = %s",
+                             where_params=(user_id, image_id))
+        return bool(result)
+        

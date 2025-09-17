@@ -27,7 +27,6 @@ def like_dislike():
     '''
     try:
         requested_data = request.json
-        #TODO validate request data
         if "liked_user" not in requested_data:
             return jsonify({"error": "Key error: request must include 'liked_user' with the liked user's username"}), 400
         

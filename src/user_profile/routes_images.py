@@ -166,3 +166,30 @@ def get_images(username):
         return jsonify({"error": "Internal server error"}), 500
 
 
+@profile_bp.route("/delete_image/<image_id>", methods=["DELETE"])
+@auth_guard
+def delete_image(image_id):
+    '''Delete an image of the logged in user by image_id'''
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        if not image_id.isdigit(): 
+            return jsonify({"error": "Invalid image ID format"}), 400
+
+        profile_crud = Profile(connection_pool)
+        
+        if not profile_crud.verify_image_ownership(g.user_id, image_id):
+            return jsonify({"error": "Image not found or you don't have permission to delete it"}), 404
+        
+        profile_crud.delete_image(g.user_id, image_id)
+        
+        return jsonify({"status": "ok", "message": "Image deleted successfully"}), 200
+
+    except ValueError as e:
+        current_app.logger.warning(f"Validation error deleting image: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error deleting image: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500

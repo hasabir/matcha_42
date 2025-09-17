@@ -4,7 +4,7 @@
     [ ] return image url in the profile
     [ ] test all the image routes
 
-[] validate request data for like dislike
+[x] validate request data for like dislike
 
 [x] geo location Table Schema
 [x] create location Table

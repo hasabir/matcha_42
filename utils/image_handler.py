@@ -37,16 +37,3 @@ def upload_pictures(requested_file, user_id, is_profile_picture=True):
     except Exception as e:
         raise Exception(e)
 
-
-# def upload_profile_images(requested_image, user_id):
-#     try:
-#         user_folder = f"static/profiles/pofile_picture/{user_id}"
-#         file_name = requested_image.filename
-#         check_allowed_file(filename=file_name)
-#         filename = secure_filename(file_name)
-#         os.makedirs(user_folder, exist_ok=True)
-#         file_path = os.path.join(user_folder, filename)
-#         requested_image.save(file_path)
-#         return file_path
-#     except Exception as e:
-#         raise Exception(e)

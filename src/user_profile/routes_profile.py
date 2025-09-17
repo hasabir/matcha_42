@@ -101,6 +101,8 @@ def get_profile(username):
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
         user_crud = User(connection_pool)
+        
+        
         user_data = user_crud.get_user_by_username(username=username)
         if not user_data:
             return jsonify({"error": "user not found"}), 404
