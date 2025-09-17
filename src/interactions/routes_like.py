@@ -38,18 +38,18 @@ def like_dislike():
         profile_crud = Profile(connection_pool)
         profile = profile_crud.get_profile_by_user_id(g.user_id)
         logger = logging.getLogger(__name__)
-        logger.debug(f"⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡User profile: {profile}")
         if not profile["profile_picture"]:
             return jsonify({"error": "You need profile picture to complete this action"}), 409
         
+        user_crud = User(connection_pool)
+        
         # Ensure the acting user is not trying to like/dislike themselves
-        username = User(connection_pool).get_user_by('id', g.user_id, 'username')
+        username = user_crud.get_user_by('id', g.user_id, 'username')
         if requested_data["liked_user"] == username:
             return jsonify({"error": "You cannot like or dislike yourself"}), 409
         
         # Check if the liked user exists
-        liked_user_crud = User(connection_pool)
-        liked_user_data = liked_user_crud.get_user_by_username(username=requested_data["liked_user"])
+        liked_user_data = user_crud.get_user_by_username(username=requested_data["liked_user"])
         if not liked_user_data:
             return jsonify({"error": "liked user does not exist"}), 409
         

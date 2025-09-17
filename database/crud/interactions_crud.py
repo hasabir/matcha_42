@@ -16,7 +16,7 @@ class Interactions(DBManager):
             table='likes', 
             data={"liker_id": self.user_id, "liked_id": self.other_user_id},
             on_conflict="nothing",
-            conflict_target=["liker_id", "liked_id"]  # Add this line
+            conflict_target=["liker_id", "liked_id"] 
         )
     
     
@@ -24,6 +24,14 @@ class Interactions(DBManager):
         return self.delete(table='likes',
                            where='liker_id = %s AND liked_id =%s',
                            where_params=(self.user_id, self.other_user_id))
+    
+    def block_user(self):
+        return self.insert(
+            table='blocks', 
+            data={"blocker_id": self.user_id, "blocked_id": self.other_user_id},
+            on_conflict="nothing",
+            conflict_target=["blocker_id", "blocked_id"] 
+        )
     
     
     def get_user_likes(self):
