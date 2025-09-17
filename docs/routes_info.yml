@@ -1,8 +1,11 @@
 routes:
   - endpoint: "/api/profile/update_profile_picture"
-    methods: ["POST"]
+    methods: ["PUT", "DELETE"]
     protected: true
-    description: "Upload a new profile picture for the logged in user. Expects a file in the 'profile_pic' field of the form data."
+    description: |
+      Handle profile picture operations for the logged in user
+      PUT: Upload a new profile picture (expects file in 'profile_pic' field)
+      DELETE: Remove the profile picture (sets to null in database)
 
   - endpoint: "/api/profile/upload_images"
     methods: ["POST"]

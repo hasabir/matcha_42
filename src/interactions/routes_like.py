@@ -30,21 +30,35 @@ def like_dislike():
         #TODO validate request data
         if "liked_user" not in requested_data:
             return jsonify({"error": "Key error: request must include 'liked_user' with the liked user's username"}), 400
+        
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
 
+        # Ensure the acting user has a profile picture before they can like/dislike others
         profile_crud = Profile(connection_pool)
         profile = profile_crud.get_profile_by_user_id(g.user_id)
         logger = logging.getLogger(__name__)
         logger.debug(f"⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡User profile: {profile}")
         if not profile["profile_picture"]:
-            
             return jsonify({"error": "You need profile picture to complete this action"}), 409
+        
+        # Ensure the acting user is not trying to like/dislike themselves
+        username = User(connection_pool).get_user_by('id', g.user_id, 'username')
+        if requested_data["liked_user"] == username:
+            return jsonify({"error": "You cannot like or dislike yourself"}), 409
+        
+        # Check if the liked user exists
         liked_user_crud = User(connection_pool)
         liked_user_data = liked_user_crud.get_user_by_username(username=requested_data["liked_user"])
         if not liked_user_data:
             return jsonify({"error": "liked user does not exist"}), 409
+        
+        # Check if the liked user has a profile
+        liked_user_profile = profile_crud.get_profile_by_user_id(liked_user_data["id"])
+        if not liked_user_profile:
+            return jsonify({"error": "The user you are trying to like/dislike does not have a profile"}), 409
+        
         interactions_crud = Interactions(connection_pool, g.user_id, liked_user_data["id"])
         manage_interactions = ManageInteractions(connection_pool, interactions_crud)
         action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
@@ -56,6 +70,8 @@ def like_dislike():
                         "message": f"user has {action} {requested_data["liked_user"]}"}), 201
     except Exception as e:
         return jsonify({"error": e}), 400
+
+
 
 @interactions_bp.route("/get_users/<interaction_type>")
 @auth_guard

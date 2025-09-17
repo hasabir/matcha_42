@@ -11,9 +11,12 @@ class Interactions(DBManager):
     
     
     def like_user(self):
-        return self.insert(table='likes', data={
-            "liker_id": self.user_id, "liked_id": self.other_user_id},
-                           on_conflict="nothing")
+        return self.insert(
+            table='likes', 
+            data={"liker_id": self.user_id, "liked_id": self.other_user_id},
+            on_conflict="nothing",
+            conflict_target=["liker_id", "liked_id"]  # Add this line
+        )
     
     
     def dislike_user(self):

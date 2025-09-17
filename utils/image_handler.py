@@ -19,10 +19,10 @@ def check_allowed_file(filename):
 
 def upload_pictures(requested_file, user_id, is_profile_picture=True):
     try:
-        if (not requested_file\
-            or requested_file.filename == '')\
-            and is_profile_picture:
-            return "static/profiles/default_profile.jpg"
+        # if (not requested_file\
+        #     or requested_file.filename == '')\
+        #     and is_profile_picture:
+        #     return "static/profiles/default_profile.jpg"
         if is_profile_picture:
             user_folder = f"static/profiles/{user_id}/pofile_picture/"
         else:

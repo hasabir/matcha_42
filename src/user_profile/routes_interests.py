@@ -26,6 +26,8 @@ def get_tags(request_data):
     return parsed_tags
     # if request_data[""]
 
+
+
 @profile_bp.route("/add_tags", methods=["POST"])
 @auth_guard
 def add_tags():

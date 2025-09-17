@@ -24,7 +24,6 @@ def create_profile():
     '''
     try:
         request_data = request.form.to_dict()
-        logger.debug(f"⚠️⚠️⚠️🔍 request data -> {request_data} ⚠️⚠️⚠️")
 
         request_data["user_id"] = g.user_id
         connection_pool = current_app.config["CONNECTION_POOL"]
@@ -43,10 +42,11 @@ def create_profile():
                 "details": validation_errors
             }), 400
 
-        requested_file = request.files.get('profile_pic')
-        profile_path = upload_pictures(requested_file, g.user_id)
+        requested_file = request.files.get('profile_pic', None)
+        profile_path = upload_pictures(requested_file, g.user_id) if requested_file else None
+        url_path = url_for('static', filename=profile_path) if requested_file else None
+        request_data["profile_picture"] = url_path if requested_file else None
         request_data["fame_rating"] = calculate_fame_rating()
-        request_data["profile_picture"] = profile_path
 
         profile_crud.create_profile(request_data)
         return jsonify({"status": "ok"}), 201

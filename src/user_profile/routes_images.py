@@ -18,25 +18,49 @@ from src.user_profile import profile_bp
 logger = logging.getLogger(__name__)
 
 
-@profile_bp.route("/update_profile_picture", methods=["POST"])
+@profile_bp.route("/update_profile_picture", methods=["PUT", "DELETE"])
 @auth_guard
 def update_profile_picture():
-    '''upload a new profile picture for the logged in user
-    Expects a file in the 'profile_pic' field of the form data.
+    '''Handle profile picture operations for the logged in user
+    PUT: Upload a new profile picture (expects file in 'profile_pic' field)
+    DELETE: Remove the profile picture (sets to null in database)
     '''
     try:
-        requested_file = request.files['profile_pic'] if request.files else None
-        profile_path = upload_pictures(requested_file, g.user_id)
         connection_pool = current_app.config["CONNECTION_POOL"]
-        profile_crud = Profile(connection_pool)
-        if not  connection_pool:
+        if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
-        profile_crud.update_profile(g.user_id, {"profile_picture": profile_path})
+        
+        profile_crud = Profile(connection_pool)
+        
+        # Handle DELETE request - remove profile picture
+        if request.method == "DELETE":
+            profile_crud.update_profile(g.user_id, {"profile_picture": None})
+            return jsonify({"status": "ok", "message": "Profile picture removed successfully"}), 200
+        
+        # Handle PUT request - upload new profile picture
+        if 'profile_pic' not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+        
+        requested_file = request.files['profile_pic']
+        if requested_file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        
+        if not requested_file:
+            return jsonify({"error": "Invalid file"}), 400
+        
+        profile_path = upload_pictures(requested_file, g.user_id)
+        url_path = url_for('static', filename=profile_path)
+        profile_crud.update_profile(g.user_id, {"profile_picture": url_path})
+        
         return jsonify({"status": "ok"}), 200
+        
     except BadRequestKeyError:
         return jsonify({"error": "KeyError, file must be stored with key = profile_pic"}), 415
     except Exception as e:
-        return jsonify({"error": e}), 409
+        return jsonify({"error": str(e)}), 409
+    except TypeError as te:
+        return jsonify({"error": str(te)}), 400
+
 
 
 @profile_bp.route("/upload_images", methods=["POST"])
@@ -71,30 +95,6 @@ def upload_images():
         logger.exception("Error uploading images")
         return jsonify({"error": str(e)}), 409
 
-# url_for('static', filename=relative_path)
-# @profile_bp.route("/get_profile_pic")
-# @auth_guard
-# def get_profile_pic():
-#     try:
-#         connection_pool = current_app.config["CONNECTION_POOL"]
-#         if not connection_pool:
-#             return jsonify({"error": "Database connection pool is not available"}), 500
-        
-#         profile_crud = Profile(connection_pool)
-#         profile_data = profile_crud.get_profile_by_user_id(g.user_id)
-        
-#         image_path = profile_data["profile_picture"]
-        
-#         if not os.path.isfile(image_path):
-#             return jsonify({"error": "Profile picture not found"}), 404
-        
-#         return send_file(image_path)
-        
-#     except KeyError:
-#         return jsonify({"error": "Profile picture not found in database"}), 404
-#     except Exception as e:
-#         current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-#         return jsonify({"error": "Internal server error"}), 500
 
 
 
@@ -108,20 +108,21 @@ def get_user_profile_pic(username):
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
-        user_crud = User(connection_pool)
-        user_data = user_crud.get_user_by_username(username=username)
-        if not user_data:
-            return jsonify({"error": "user not found"}), 404
 
         #TODO check first if the user is not blocked then continue
+        
+        if username == "me":
+            profile_data = profile_crud.get_profile_by_user_id(g.user_id)
+            logger.debug(f"⚠️⚠️⚠️🔍 request data -> {profile_data} ⚠️⚠️⚠️")
 
-        profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
-        image_path = profile_data["profile_picture"]
+        else:
+            user_crud = User(connection_pool)
+            user_data = user_crud.get_user_by_username(username=username)
+            if not user_data:
+                return jsonify({"error": "user not found"}), 404
+            profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
 
-        if not os.path.isfile(image_path):
-            return jsonify({"error": "Profile picture not found"}), 404
-
-        return send_file(image_path)
+        return jsonify({"status": "ok", "result": profile_data["profile_picture"]})
 
     except KeyError:
         return jsonify({"error": "Profile picture not found in database"}), 404

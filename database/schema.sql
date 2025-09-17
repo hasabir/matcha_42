@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     age INTEGER,
     gender TEXT,
     sexual_preferences TEXT,
-    user_location TEXT,
     fame_rating INTEGER DEFAULT 0,
     profile_picture TEXT
 );

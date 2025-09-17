@@ -4,6 +4,8 @@
     [ ] return image url in the profile
     [ ] test all the image routes
 
-[] geo location Table Schema
-[] create location Table
-[] set location for user
+[] validate request data for like dislike
+
+[x] geo location Table Schema
+[x] create location Table
+[x] set location for user
