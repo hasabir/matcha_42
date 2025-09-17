@@ -56,6 +56,16 @@ routes:
         - country (string): Optional. Country name.
         - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
 
+  - endpoint: "/api/profile/nearby_users"
+    methods: ["GET"]
+    protected: true
+    description: |
+      Retrieve a list of users located within a specified distance from the logged-in user.
+      Query Parameters:
+        - max_distance (float): Optional. Maximum distance in kilometers to search for nearby users. Defaults to 100km if not provided.
+      Returns a list of users with their username and distance from the logged-in user.
+
+
   - endpoint: "/api/profile/search_profile/<username>"
     methods: ["GET"]
     protected: true
@@ -70,3 +80,4 @@ routes:
     methods: ["GET"]
     protected: true
     description: "Endpoint to get users that the current user has liked or users that have liked the current user. interaction_type must be either 'liked' or 'likers'."
+  

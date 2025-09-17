@@ -64,10 +64,12 @@ class Location(DBManager):
                 u.id,
                 u.username,
                 ROUND(
-                    ST_Distance(
-                        ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
-                        ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography
-                    ) / 1000, 1
+                    CAST(
+                        ST_Distance(
+                            ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
+                            ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography
+                        ) / 1000 AS numeric
+                    ), 1
                 ) AS distance_km
             FROM user_locations ul1
             JOIN user_locations ul2 ON ul2.user_id != ul1.user_id

@@ -68,10 +68,13 @@ def set_location():
 @profile_bp.route("/nearby_users", methods=["GET"])
 @auth_guard
 def get_nearby_users():
+    '''Retrieve a list of users located within a specified distance from the logged-in user.
+    Query Parameters:
+    - max_distance (float): Optional. Maximum distance in kilometers to search for nearby users. Defaults to 100km if not provided.
+    '''
     try:
         user_id = g.user_id
         max_distance = request.args.get('max_distance', 100, type=float)  # Default 100km
-        
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500

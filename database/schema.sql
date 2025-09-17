@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 
 -- User Locations Table
-CREATE TABLE user_locations (
+CREATE TABLE IF NOT EXISTS user_locations (
     location_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
@@ -30,7 +30,7 @@ CREATE TABLE user_locations (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_current_location UNIQUE(user_id)
 );
-CREATE INDEX idx_user_locations_geo ON user_locations USING GIST (
+CREATE INDEX IF NOT EXISTS idx_user_locations_geo  ON user_locations USING GIST (
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
 );
 
