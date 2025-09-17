@@ -64,3 +64,29 @@ def set_location():
     except Exception as e:
         logger.error(f"Error setting location: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+@profile_bp.route("/nearby_users", methods=["GET"])
+@auth_guard
+def get_nearby_users():
+    try:
+        user_id = g.user_id
+        max_distance = request.args.get('max_distance', 100, type=float)  # Default 100km
+        
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        from database.crud.location_crud import Location
+        location_crud = Location(connection_pool)
+        
+        nearby_users = location_crud.find_nearby_users(user_id, max_distance)
+        
+        return jsonify({
+            "status": "ok",
+            "nearby_users": nearby_users,
+            "count": len(nearby_users)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error finding nearby users: {e}")
+        return jsonify({"error": "Internal server error"}), 500

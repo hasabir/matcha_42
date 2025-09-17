@@ -5,6 +5,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 from utils.security import SecurityUtils
 logging.basicConfig(level=logging.INFO)
+from psycopg2 import sql
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,33 +38,50 @@ class Location(DBManager):
             update_set=update_data
         )
 
-    # def set_user_location(self, location_data):
-    #     """Insert or update user location with proper UPSERT handling"""
-    #     user_id = location_data.get('user_id')
-        # if not user_id:
-        #     raise ValueError("user_id is required")
-        
-        # update_data = {key: value for key, value in location_data.items() if value is not None and key != 'user_id'}
-        
-        # return self.insert(
-        #     table='user_locations',
-        #     data=location_data,
-        #     on_conflict='UPDATE',
-        #     conflict_target=['user_id'],
-        #     update_set=update_data
-        # )
 
-
-    
-        # except Exception as e:
-        #     logging.error(f"Error setting location for user {user_id}: {e}")
-        #     raise
     
     def get_user_location(self, user_id):
         """Retrieve user location by user ID"""
         result = self.select('user_locations', where="user_id = %s", where_params=(user_id,))
         return result[0] if result else None
     
+    
+    def find_nearby_users(self, user_id, max_distance_km=100):
+        """
+        Find users near a given user within a specified distance
+        
+        Args:
+            user_id: ID of the user to find neighbors for
+            max_distance_meters: Maximum distance in meters (default: 100,000m = 100km)
+            
+        Returns:
+            List of nearby users with their distance in km
+        """
+        max_distance_meters = max_distance_km * 1000
+        
+        query = sql.SQL("""
+            SELECT 
+                u.id,
+                u.username,
+                ROUND(
+                    ST_Distance(
+                        ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography
+                    ) / 1000, 1
+                ) AS distance_km
+            FROM user_locations ul1
+            JOIN user_locations ul2 ON ul2.user_id != ul1.user_id
+            JOIN users u ON u.id = ul2.user_id
+            WHERE ul1.user_id = %s
+            AND ST_DWithin(
+                ST_SetSRID(ST_MakePoint(ul1.longitude, ul1.latitude), 4326)::geography,
+                ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography,
+                %s
+            )
+            ORDER BY distance_km ASC
+        """)
+        
+        return self.execute(query, (user_id, max_distance_meters))
     
     
     
