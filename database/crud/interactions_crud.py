@@ -58,3 +58,9 @@ class Interactions(DBManager):
                              where_params=(self.other_user_id, self.user_id))
         logger.debug(f"👉👉👉👉Blocked check result: {result}👈👈👈👈")
         return bool(result)
+    
+    def get_user_blocks(self):
+        result = self.select('blocks', columns='blocked_id',
+                             where='blocker_id = %s', where_params=(self.user_id, ))
+        # return result[0] if result else None
+        return [row['blocked_id'] for row in result]
