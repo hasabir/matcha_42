@@ -13,11 +13,12 @@
 
 
 [x] block user not tested yet
-[] view profile endpoint
+[x] view profile endpoint
 [] report user
 [] calculate fame rating
 [] matching algorithm
 [] searching algorithm
+[] is user online
 
 
 

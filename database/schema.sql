@@ -101,13 +101,12 @@ CREATE TABLE IF NOT EXISTS blocks (
 
 -- Reports Table
 CREATE TABLE IF NOT EXISTS reports (
-    report_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     reporter_id INT REFERENCES users(id) ON DELETE CASCADE,  
     reported_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    reason TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- ! i don't wnat to do :( reason TEXT,
+    PRIMARY KEY (reporter_id, reported_id)
 );
-
 -- Conversations Table
 CREATE TABLE IF NOT EXISTS conversations (
     conversation_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

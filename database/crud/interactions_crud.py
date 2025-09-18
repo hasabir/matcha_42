@@ -64,3 +64,23 @@ class Interactions(DBManager):
                              where='blocker_id = %s', where_params=(self.user_id, ))
         # return result[0] if result else None
         return [row['blocked_id'] for row in result]
+    
+    def report_user(self):
+        return self.insert(
+            table='reports', 
+            data={"reporter_id": self.user_id, "reported_id": self.other_user_id},
+            on_conflict="nothing",
+            conflict_target=["reporter_id", "reported_id"] 
+        )
+        
+    def get_user_reports(self):
+        result = self.select('reports', columns='reported_id',
+                             where='reporter_id = %s', where_params=(self.user_id, ))
+        # return result[0] if result else None
+        return [row['reported_id'] for row in result]
+    
+    def has_reported(self):
+        result = self.select('reports', columns='reporter_id',
+                             where='reporter_id = %s AND reported_id = %s',
+                             where_params=(self.user_id, self.other_user_id))
+        return bool(result)

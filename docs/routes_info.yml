@@ -82,15 +82,29 @@ routes:
       Returns a list of users with their username and distance from the logged-in user.
 
 
-  - endpoint: "/api/profile/search_profile/<username>"
+  - endpoint: "/api/profile/get_profile/<username>"
     methods: ["GET"]
     protected: true
-    description: "Get the profile of a user by username."
+    description: |
+      Get the profile of a user by username. If username is "me" get the profile of the logged in user.
+      If the requested user has blocked the logged in user, a 403 error is returned.
+      Each time a profile is viewed, a record is created to log the visit.
+      result includes profile details and interest tags.
+    
+  - endpoint: "/api/profile/get_profile_vistors"
+    methods: ["GET"]
+    protected: true
+    description: "Get a list of users who have visited the logged in user's profile."
 
   - endpoint: "/api/interactions/like_dislike"
     methods: ["POST"]
     protected: true
     description: "Endpoint to like or dislike a user. Expects JSON body with key 'liked_user' containing the username of the user to like or dislike."
+
+  - endpoint: "/api/interactions/block"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to block a user. Expects JSON body with key 'blocked_user' containing the username of the user to block."
 
   - endpoint: "/api/interactions/get_users/<interaction_type>"
     methods: ["GET"]

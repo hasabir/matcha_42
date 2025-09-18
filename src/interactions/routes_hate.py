@@ -59,4 +59,46 @@ def block_user():
         return jsonify({"error": str(e)}), 409
     
     
-    
+@interactions_bp.route("/report", methods=["POST"])
+@auth_guard
+def report_user():
+    ''' Endpoint to report a user.
+    Expects JSON body with key 'reported_user' containing the username of the user to report.
+    '''
+    try:
+        requested_data = request.get_json()
+        if not requested_data:
+            return jsonify({"error": "Request body must be JSON"}), 400
+        if not isinstance(requested_data, dict):
+            return jsonify({"error": "Request body must be a JSON object"}), 400
+        if "reported_user" not in requested_data:
+            return jsonify({"error": "Request body must contain 'reported_user' key"}), 400
+
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        user_crud = User(connection_pool)
+        # Ensure the acting user is not trying to report themselves
+        username = user_crud.get_user_by('id', g.user_id, 'username')
+        if requested_data["reported_user"] == username:
+            return jsonify({"error": "You cannot report yourself"}), 409
+
+        # Check if the reported user exists
+        reported_user_data = user_crud.get_user_by_username(username=requested_data["reported_user"])
+        if not reported_user_data:
+            return jsonify({"error": "Reported user does not exist"}), 409
+        
+        interactions_crud = Interactions(connection_pool, g.user_id, reported_user_data["id"])
+        if interactions_crud.has_reported():
+            #TODO: limit number of reports per user?
+            
+            return jsonify({"error": f"You have already reported user {requested_data['reported_user']}"}), 409
+        
+        #TODO fame rating decrease? or other action?
+        
+        interactions_crud.report_user()
+        return jsonify({"status": "ok", "message": f"you reported user {requested_data['reported_user']}"}), 200
+    except Exception as e:
+        logging.exception("Error reporting user")
+        return jsonify({"error": str(e)}), 409

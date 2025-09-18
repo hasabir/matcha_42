@@ -93,7 +93,7 @@ def update_profile():
 
 
 
-@profile_bp.route("/search_profile/<username>")
+@profile_bp.route("/get_profile/<username>")
 @auth_guard
 def get_profile(username):
     '''get the profile of a user by username if username is "me" get the profile of the logged in user'''
@@ -118,6 +118,8 @@ def get_profile(username):
             
         if interactions_crud.is_blocked():
             return jsonify({"error": "You are blocked by this user"}), 403
+        
+        profile_crud.set_user_visited(g.user_id, user_data["id"])
 
         profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
         profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
@@ -126,7 +128,27 @@ def get_profile(username):
         profile_data["last_name"] = user_data["last_name"]
         profile_data["username"] = user_data["username"]
         profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
+
         return jsonify({"result": profile_data}), 200
     except Exception as e:
         return jsonify({"error": "requied field <tag>"}), 409
+    
+    
+@profile_bp.route("/get_profile_vistors", methods=["GET"])
+@auth_guard
+def get_profile_vistors():
+    '''get the profile visitors of the logged in user'''
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        profile_crud = Profile(connection_pool)
+        result = profile_crud.get_profile_views(g.user_id)
+        user_crud = User(connection_pool)
+        for view in result:
+            user_info = user_crud.get_user_by_id(view["visitor_id"])
+            view["username"] = user_info["username"]
+        return jsonify({'result': result}), 200
+    except Exception as e:
+        return jsonify({"error": e}), 409
 

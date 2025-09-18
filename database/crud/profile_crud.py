@@ -109,4 +109,16 @@ class Profile(DBManager):
         result = self.select('images', "image_id", where="user_id = %s AND image_id = %s",
                              where_params=(user_id, image_id))
         return bool(result)
+    
+    def set_user_visited(self, visitor_id, visited_id):
+        return self.insert(
+            table='visits', 
+            data={"visitor_id": visitor_id, "visited_id": visited_id},
+            on_conflict="nothing",
+            conflict_target=["visitor_id", "visited_id"] 
+        )
+    
+    def get_profile_views(self, user_id):
+        result = self.select('visits', "visitor_id", where="visited_id = %s", where_params=(user_id,))
+        return [visit['visitor_id'] for visit in result]
         
