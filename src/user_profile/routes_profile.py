@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, g, send_file, url_for
 from database.crud.interactions_crud import Interactions
 from database.crud.location_crud import Location
@@ -6,6 +7,7 @@ from src.user_profile import profile_bp
 import sys
 import os
 
+from utils.profile_utils import houres_between_dates
 from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
@@ -119,8 +121,7 @@ def get_profile(username):
         if interactions_crud.is_blocked():
             return jsonify({"error": "You are blocked by this user"}), 403
         
-        profile_crud.set_user_visited(g.user_id, user_data["id"])
-
+        
         profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
         profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
         profile_data["images"] = profile_crud.get_images(user_data["id"])
@@ -129,9 +130,23 @@ def get_profile(username):
         profile_data["username"] = user_data["username"]
         profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
 
+        #set profile visit
+        #TODO notify other user of visit
+        last_visit = profile_crud.check_last_visit(g.user_id, user_data["id"])
+        hours_passed = houres_between_dates(last_visit) if last_visit else None
+        
+        if hours_passed is None:
+            profile_crud.set_user_visited(g.user_id, user_data["id"])
+            new_rating = calculate_fame_rating(profile_data['fame_rating'], type='visit')
+            profile_crud.update_fame_rating(user_data["id"], new_rating)
+        elif hours_passed >= 24:
+            profile_crud.set_user_visited(g.user_id, user_data["id"])
+            new_rating = calculate_fame_rating(profile_data['fame_rating'], type='visit')
+            profile_crud.update_profile_vist_timestamp(g.user_id, user_data["id"])
+        
         return jsonify({"result": profile_data}), 200
     except Exception as e:
-        return jsonify({"error": "requied field <tag>"}), 409
+        return jsonify({"error": e}), 409
     
     
 @profile_bp.route("/get_profile_vistors", methods=["GET"])

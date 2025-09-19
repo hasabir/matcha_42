@@ -62,6 +62,12 @@ class Interactions(DBManager):
                              where_params=(self.other_user_id, self.user_id))
         logger.debug(f"👉👉👉👉Blocked check result: {result}👈👈👈👈")
         return bool(result)
+
+    def did_i_block(self):
+        result = self.select('blocks', columns='blocker_id',
+                             where='blocker_id = %s AND blocked_id = %s',
+                             where_params=(self.user_id, self.other_user_id))
+        return bool(result)
     
     def get_user_blocks(self):
         result = self.select('blocks', columns='blocked_id',
@@ -88,3 +94,8 @@ class Interactions(DBManager):
                              where='reporter_id = %s AND reported_id = %s',
                              where_params=(self.user_id, self.other_user_id))
         return bool(result)
+    
+    def unblock_user(self):
+        return self.delete(table='blocks',
+                           where='blocker_id = %s AND blocked_id = %s',
+                           where_params=(self.user_id, self.other_user_id))

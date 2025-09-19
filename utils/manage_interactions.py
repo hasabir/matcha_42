@@ -25,7 +25,6 @@ class ManageInteractions():
         return "dislike"
   
     
-    
     # def connect_users(self, user1_id, user2_id):
     #     #check if tow users liked each other
         

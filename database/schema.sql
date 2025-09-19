@@ -85,12 +85,11 @@ CREATE TABLE IF NOT EXISTS connections (
 
 -- Visits Table
 CREATE TABLE IF NOT EXISTS visits (
-    viewer_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    viewed_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (viewer_id, viewed_id, viewed_at)
+    visitor_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    visited_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (visitor_id, visited_id)
 );
-
 -- Blocks Table
 CREATE TABLE IF NOT EXISTS blocks (
     blocker_id INT REFERENCES users(id) ON DELETE CASCADE,  

@@ -23,7 +23,7 @@ class Matching(DBManager):
     
     def unmatche(self, user_id, other_user_id):
         return self.delete(table=self.table_name,
-                           where='user1_id = %s AND user2_id - %s',
+                           where='user1_id = %s AND user2_id = %s',
                            where_params=(user_id, other_user_id))
     
     def matche(self, user1_id, user2_id):

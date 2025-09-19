@@ -16,7 +16,7 @@
 [x] view profile endpoint
 [x] report user
 [] calculate fame rating
-[] unblock
+[x] unblock
 [] matching algorithm
 [] searching algorithm
 [] is user online
@@ -33,12 +33,13 @@
 
     [x] for eatch like +5 points
     [] for eatch profile view +1 points -> Per unique user per day
-    [] for eatch unblock +13
+    [x] for eatch unblock +13
     [x] for eatch dislike  -5 points
-    [] for eatch block  -13 points
-    [] for eatch report  -21
+    [x] for eatch block  -13 points
+    [x] for eatch report  -21
 
     [] /fame_rating -> api
     [] get_fame_rating -> crud
     [] set_frame_rating -> crud -update profile?-
     [] calculate fame_rating -> utils
+

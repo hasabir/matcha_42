@@ -7,6 +7,7 @@ from werkzeug.exceptions import BadRequestKeyError
 
 from database.crud.matching_operations_crud import Matching
 from database.crud.user_crud import User
+from utils.fame_rating import calculate_fame_rating
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 
@@ -55,8 +56,12 @@ def block_user():
         matching_crud = Matching(connection_pool)
         if matching_crud.are_matched(g.user_id, blocked_user_data["id"]):
             matching_crud.unmatche(g.user_id, blocked_user_data["id"])
-        interactions_crud.dislike_user()  # Remove any like relationship if exists
+        interactions_crud.dislike_user()
         interactions_crud.block_user()
+        profile_crud = Profile(connection_pool)
+        blocked_user_profile = profile_crud.get_profile_by_user_id(blocked_user_data["id"])
+        new_rating = calculate_fame_rating(blocked_user_profile['fame_rating'], type='block')  
+        profile_crud.update_fame_rating(blocked_user_data["id"], new_rating)
         return jsonify({"status": "ok", "message": f"you blocked user {requested_data["blocked_user"]}"}), 200
     except Exception as e:
         logging.exception("Error blocking user")
@@ -94,11 +99,15 @@ def unblock_user():
             return jsonify({"error": "Unblocked user does not exist"}), 409
         
         interactions_crud = Interactions(connection_pool, g.user_id, unblocked_user_data["id"])
-        if not interactions_crud.is_blocked():
+        if not interactions_crud.did_i_block():
             return jsonify({"error": f"You have not blocked user {requested_data['unblocked_user']}"}), 409
 
 
         interactions_crud.unblock_user()
+        profile_crud = Profile(connection_pool)
+        unblocked_user_profile = profile_crud.get_profile_by_user_id(unblocked_user_data["id"])
+        new_rating = calculate_fame_rating(unblocked_user_profile['fame_rating'], type='unblock')  
+        profile_crud.update_fame_rating(unblocked_user_data["id"], new_rating)
         return jsonify({"status": "ok", "message": f"you unblocked user {requested_data['unblocked_user']}"}), 200
     except Exception as e:
         logging.exception("Error unblocking user")
@@ -143,6 +152,11 @@ def report_user():
         #TODO fame rating decrease? or other action?
         
         interactions_crud.report_user()
+        profile_crud = Profile(connection_pool)
+        reported_user_data = profile_crud.get_profile_by_user_id(reported_user_data["id"])
+        new_rating = calculate_fame_rating(reported_user_data['fame_rating'], type='report')  
+        profile_crud.update_fame_rating(reported_user_data["id"], new_rating)
+        
         return jsonify({"status": "ok", "message": f"you reported user {requested_data['reported_user']}"}), 200
     except Exception as e:
         logging.exception("Error reporting user")
