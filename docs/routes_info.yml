@@ -96,6 +96,11 @@ routes:
     protected: true
     description: "Get a list of users who have visited the logged in user's profile."
 
+  - endpoint: "/api/profile/get_fame_rating"
+    methods: ["GET"]
+    protected: true
+    description: "Get the fame rating of the logged in user."
+
   - endpoint: "/api/interactions/like_dislike"
     methods: ["POST"]
     protected: true
@@ -106,6 +111,11 @@ routes:
     protected: true
     description: "Endpoint to block a user. Expects JSON body with key 'blocked_user' containing the username of the user to block."
 
+  - endpoint: "/api/interactions/unblock"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to unblock a user. Expects JSON body with key 'unblocked_user' containing the username of the user to unblock."
+  
   - endpoint: "/api/interactions/get_users/<interaction_type>"
     methods: ["GET"]
     protected: true
