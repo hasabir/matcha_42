@@ -43,7 +43,26 @@ class Location(DBManager):
     def get_user_location(self, user_id):
         """Retrieve user location by user ID"""
         result = self.select('user_locations', where="user_id = %s", where_params=(user_id,))
-        return result[0] if result else None
+        location = {}
+        if result:
+            location = {
+                "latitude": result[0]["latitude"],
+                "longitude": result[0]["longitude"],
+                "city": result[0]["city"],
+                "country": result[0]["country"],
+                "accuracy": result[0]["accuracy"]
+            }
+        return location
+    
+    def get_location_coordinates(self, user_id):
+        """Retrieve only latitude and longitude for a user"""
+        result = self.select('user_locations', columns=['latitude', 'longitude'], where="user_id = %s", where_params=(user_id,))
+        if result:
+            return {
+                "latitude": result[0]["latitude"],
+                "longitude": result[0]["longitude"]
+            }
+        return None
     
     
     def find_nearby_users(self, user_id, max_distance_km=100):

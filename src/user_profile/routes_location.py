@@ -31,7 +31,7 @@ def set_location():
     - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
     '''
     try:
-        request_data = request.get_json()
+        request_data = request.json
         logger.debug(f"⚠️⚠️⚠️🔍 request data -> {request_data} ⚠️⚠️⚠️")
 
         required_fields = ['latitude', 'longitude']
@@ -64,7 +64,7 @@ def set_location():
         
     except Exception as e:
         logger.error(f"Error setting location: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": e}), 409
     
     
 

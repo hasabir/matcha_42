@@ -97,7 +97,6 @@ class Profile(DBManager):
         logger = logging.getLogger(__name__)
         
         result = self.select('images', "image_url", where="user_id = %s", where_params=(user_id,))
-
         return [image['image_url'] for image in result]
     
     

@@ -7,7 +7,7 @@ from src.user_profile import profile_bp
 import sys
 import os
 
-from utils.profile_utils import houres_between_dates
+from utils.profile_utils import get_profile_data, houres_between_dates
 from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
@@ -106,9 +106,10 @@ def get_profile(username):
         profile_crud = Profile(connection_pool)
         
         if username == "me":
-            profile_data = profile_crud.get_profile_by_user_id(g.user_id)
-            profile_data["tags"] = profile_crud.get_user_interests(g.user_id)
-            profile_data["images"] = profile_crud.get_images(g.user_id)
+            # profile_data = profile_crud.get_profile_by_user_id(g.user_id)
+            # profile_data["tags"] = profile_crud.get_user_interests(g.user_id)
+            # profile_data["images"] = profile_crud.get_images(g.user_id)
+            profile_data = get_profile_data(connection_pool, g.user_id)
             return jsonify({"result": profile_data}), 200
 
         user_crud = User(connection_pool)
@@ -121,14 +122,15 @@ def get_profile(username):
         if interactions_crud.is_blocked():
             return jsonify({"error": "You are blocked by this user"}), 403
         
+        profile_data = get_profile_data(connection_pool, user_data["id"])
         
-        profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
-        profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
-        profile_data["images"] = profile_crud.get_images(user_data["id"])
-        profile_data["first_name"] = user_data["first_name"]
-        profile_data["last_name"] = user_data["last_name"]
-        profile_data["username"] = user_data["username"]
-        profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
+        # profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
+        # profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
+        # profile_data["images"] = profile_crud.get_images(user_data["id"])
+        # profile_data["first_name"] = user_data["first_name"]
+        # profile_data["last_name"] = user_data["last_name"]
+        # profile_data["username"] = user_data["username"]
+        # profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
 
         #set profile visit
         #TODO notify other user of visit
