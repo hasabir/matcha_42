@@ -7,6 +7,7 @@ from werkzeug.exceptions import BadRequestKeyError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 
+from database.crud.matching_operations_crud import Matching
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
 from database.crud.interactions_crud import Interactions
@@ -63,10 +64,16 @@ def like_dislike():
         action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
         if action == "like":
             interactions_crud.like_user()
-        else:
+            new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='like')
+            profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
+
+        elif action == "dislike":
             interactions_crud.dislike_user()
+            new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='dislike')
+            profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
         return jsonify({"status": "ok",
-                        "message": f"user has {action} {requested_data["liked_user"]}"}), 201
+                        "message": f"user has {action} {requested_data["liked_user"]}",
+                        "new_fame_rating": new_rating}), 201
     except Exception as e:
         return jsonify({"error": e}), 400
 
@@ -104,3 +111,39 @@ def get_user_likes(interaction_type):
         return jsonify({"error": e})
 
 
+@interactions_bp.route("/is_matched", methods=["POST"])
+@auth_guard
+def is_matched():
+    '''Endpoint to check if the logged in user is matched with another user.
+    Expects JSON body with key 'other_user' containing the username of the other user.
+    '''
+    try:
+        requested_data = request.json
+        if "other_user" not in requested_data:
+            return jsonify({"error": "Key error: request must include 'other_user' with the other user's username"}), 400
+        
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        user_crud = User(connection_pool)
+        
+        # Ensure the acting user is not trying to check match status with themselves
+        username = user_crud.get_user_by('id', g.user_id, 'username')
+        if requested_data["other_user"] == username:
+            return jsonify({"error": "You cannot check match status with yourself"}), 409
+        
+        # Check if the other user exists
+        other_user_data = user_crud.get_user_by_username(username=requested_data["other_user"])
+        if not other_user_data:
+            return jsonify({"error": "The specified user does not exist"}), 409
+        
+        matching_crud = Matching(connection_pool)
+        matched_users_ids = matching_crud.get_matched_users(g.user_id)
+        is_matched = matched_users_ids and other_user_data["id"] in matched_users_ids
+        
+        manage_interactions = ManageInteractions(connection_pool, None)
+        test = manage_interactions.connect_users(g.user_id, other_user_data["id"])
+        return jsonify({"result": is_matched, "test": test}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400

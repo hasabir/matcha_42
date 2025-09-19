@@ -121,4 +121,17 @@ class Profile(DBManager):
     def get_profile_views(self, user_id):
         result = self.select('visits', "visitor_id", where="visited_id = %s", where_params=(user_id,))
         return [visit['visitor_id'] for visit in result]
-        
+    
+    def get_fame_rating(self, user_id):
+        try:
+            result = self.select('profiles', "fame_rating", where="user_id = %s", where_params=(user_id,))
+            return result[0]['fame_rating'] if result else 0
+        except Exception as e:
+            raise Exception(e)
+    
+    
+    def update_fame_rating(self, user_id, new_rating):
+        try:
+            self.update('profiles', {"fame_rating": new_rating}, where="user_id = %s", where_params=(user_id,))
+        except Exception as e:
+            raise Exception(e)

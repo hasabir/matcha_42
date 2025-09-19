@@ -152,3 +152,16 @@ def get_profile_vistors():
     except Exception as e:
         return jsonify({"error": e}), 409
 
+@profile_bp.route("/get_fame_rating", methods=["GET"])
+@auth_guard
+def fame_rating():
+    '''get the fame rating of the logged in user'''
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not  connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        profile_crud = Profile(connection_pool)
+        fame_rating = profile_crud.get_fame_rating(g.user_id)
+        return jsonify({'fame_rating': fame_rating}), 200
+    except Exception as e:
+        return jsonify({"error": e}), 409

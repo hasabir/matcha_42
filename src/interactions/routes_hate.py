@@ -5,6 +5,7 @@ import logging
 from flask import Blueprint, flash, request, jsonify, current_app, g, send_file, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
+from database.crud.matching_operations_crud import Matching
 from database.crud.user_crud import User
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
@@ -51,13 +52,57 @@ def block_user():
         if interactions_crud.is_blocked():
             return jsonify({"error": f"You have already blocked user {requested_data['blocked_user']}"}), 409
         
-        
+        matching_crud = Matching(connection_pool)
+        if matching_crud.are_matched(g.user_id, blocked_user_data["id"]):
+            matching_crud.unmatche(g.user_id, blocked_user_data["id"])
+        interactions_crud.dislike_user()  # Remove any like relationship if exists
         interactions_crud.block_user()
         return jsonify({"status": "ok", "message": f"you blocked user {requested_data["blocked_user"]}"}), 200
     except Exception as e:
         logging.exception("Error blocking user")
         return jsonify({"error": str(e)}), 409
     
+    
+@interactions_bp.route("/unblock", methods=["POST"])
+@auth_guard
+def unblock_user():
+    ''' Endpoint to unblock a user.
+    Expects JSON body with key 'unblocked_user' containing the username of the user to unblock.
+    '''
+    try:
+        requested_data = request.get_json()
+        if not requested_data:
+            return jsonify({"error": "Request body must be JSON"}), 400
+        if not isinstance(requested_data, dict):
+            return jsonify({"error": "Request body must be a JSON object"}), 400
+        if "unblocked_user" not in requested_data:
+            return jsonify({"error": "Request body must contain 'unblocked_user' key"}), 400
+
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        user_crud = User(connection_pool)
+        # Ensure the acting user is not trying to unblock themselves
+        username = user_crud.get_user_by('id', g.user_id, 'username')
+        if requested_data["unblocked_user"] == username:
+            return jsonify({"error": "You cannot unblock yourself"}), 409
+
+        # Check if the unblocked user exists
+        unblocked_user_data = user_crud.get_user_by_username(username=requested_data["unblocked_user"])
+        if not unblocked_user_data:
+            return jsonify({"error": "Unblocked user does not exist"}), 409
+        
+        interactions_crud = Interactions(connection_pool, g.user_id, unblocked_user_data["id"])
+        if not interactions_crud.is_blocked():
+            return jsonify({"error": f"You have not blocked user {requested_data['unblocked_user']}"}), 409
+
+
+        interactions_crud.unblock_user()
+        return jsonify({"status": "ok", "message": f"you unblocked user {requested_data['unblocked_user']}"}), 200
+    except Exception as e:
+        logging.exception("Error unblocking user")
+        return jsonify({"error": str(e)}), 409
     
 @interactions_bp.route("/report", methods=["POST"])
 @auth_guard
@@ -102,3 +147,6 @@ def report_user():
     except Exception as e:
         logging.exception("Error reporting user")
         return jsonify({"error": str(e)}), 409
+    
+    
+    

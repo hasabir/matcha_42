@@ -84,7 +84,8 @@ def upload_images():
             return jsonify({"error": "Database connection pool is not available"}), 500
         image_paths = []
         for file in uploaded_files:
-            path = upload_pictures(file, g.user_id)
+            logger.debug(f"$$$$$$$$$$$$$$$$$$$ Processing file: {file.filename}")
+            path = upload_pictures(file, g.user_id, False)
             url_path = url_for('static', filename=path)
             profile_crud.insert_images(url_path, g.user_id)
             image_paths.append(url_path)
