@@ -112,11 +112,13 @@ def get_user_profile_pic(username):
         profile_crud = Profile(connection_pool)
 
 
-        if username == "me":
+        user_crud = User(connection_pool)
+        
+        if username == "me" \
+            or user_crud.get_user_by('id', g.user_id, 'username')["username"]["username"] == username:
             profile_data = profile_crud.get_profile_by_user_id(g.user_id)
 
         else:
-            user_crud = User(connection_pool)
             user_data = user_crud.get_user_by_username(username=username)
             if not user_data:
                 return jsonify({"error": "user not found"}), 404
@@ -150,11 +152,12 @@ def get_images(username):
             return jsonify({"error": "Database connection pool is not available"}), 500
 
         profile_crud = Profile(connection_pool)
-        if username == "me":
+        user_crud = User(connection_pool)
+        if username == "me"\
+            or user_crud.get_user_by('id', g.user_id, 'username')["username"]["username"]["username"]["username"] == username:
             user_images = profile_crud.get_images(g.user_id)
             return jsonify({"result": user_images}), 200
         
-        user_crud = User(connection_pool)
         user_data = user_crud.get_user_by_username(username=username)
         if not user_data:
             return jsonify({"error": "user not found"}), 404

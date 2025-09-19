@@ -105,14 +105,16 @@ def get_profile(username):
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
         
-        if username == "me":
-            # profile_data = profile_crud.get_profile_by_user_id(g.user_id)
-            # profile_data["tags"] = profile_crud.get_user_interests(g.user_id)
-            # profile_data["images"] = profile_crud.get_images(g.user_id)
-            profile_data = get_profile_data(connection_pool, g.user_id)
-            return jsonify({"result": profile_data}), 200
-
         user_crud = User(connection_pool)
+        
+        # if the username is "me" or the logged in user's username get the logged in user's profile
+        test = user_crud.get_user_by('id', g.user_id, 'username')
+        if username == "me" \
+            or user_crud.get_user_by('id', g.user_id, 'username')["username"] == username:
+            
+            profile_data = get_profile_data(connection_pool, g.user_id)
+            return jsonify({"result": profile_data}, test), 200
+
         user_data = user_crud.get_user_by_username(username=username)
         if not user_data:
             return jsonify({"error": "user not found"}), 404
@@ -124,14 +126,6 @@ def get_profile(username):
         
         profile_data = get_profile_data(connection_pool, user_data["id"])
         
-        # profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
-        # profile_data["tags"] = profile_crud.get_user_interests(user_data["id"])
-        # profile_data["images"] = profile_crud.get_images(user_data["id"])
-        # profile_data["first_name"] = user_data["first_name"]
-        # profile_data["last_name"] = user_data["last_name"]
-        # profile_data["username"] = user_data["username"]
-        # profile_data["location"] = Location(connection_pool).get_user_location(user_data["id"])
-
         #set profile visit
         #TODO notify other user of visit
         last_visit = profile_crud.check_last_visit(g.user_id, user_data["id"])
@@ -145,8 +139,9 @@ def get_profile(username):
             profile_crud.set_user_visited(g.user_id, user_data["id"])
             new_rating = calculate_fame_rating(profile_data['fame_rating'], type='visit')
             profile_crud.update_profile_vist_timestamp(g.user_id, user_data["id"])
-        
-        return jsonify({"result": profile_data}), 200
+            profile_crud.update_fame_rating(user_data["id"], new_rating)
+    
+        return jsonify({"result": profile_data, "houres_passed": hours_passed}), 200
     except Exception as e:
         return jsonify({"error": e}), 409
     

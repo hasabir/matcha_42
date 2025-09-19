@@ -33,10 +33,4 @@ def get_profile_data(connection_pool, user_id):
         "gender": profile_data["gender"]
     }
     
-    # profile_data["tags"] = profile_crud.get_user_interests(user_id)
-    # profile_data["images"] = profile_crud.get_images(user_id)
-    # profile_data["first_name"] = user_data["first_name"]
-    # profile_data["last_name"] = user_data["last_name"]
-    # profile_data["username"] = user_data["username"]
-    # profile_data["location"] = Location(connection_pool).get_user_location(user_id)
     return result

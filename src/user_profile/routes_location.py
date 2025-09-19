@@ -114,10 +114,11 @@ def get_user_location(username):
         from database.crud.location_crud import Location
         location_crud = Location(connection_pool)
 
-        if username == "me":
+        user_crud = User(connection_pool)
+        if username == "me"\
+            or user_crud.get_user_by('id', g.user_id, 'username')["username"] == username:
             user_id = g.user_id
         else:
-            user_crud = User(connection_pool)
             user_data = user_crud.get_user_by_username(username=username)
             if not user_data:
                 return jsonify({"error": "User not found"}), 404

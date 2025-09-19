@@ -39,6 +39,7 @@ def block_user():
             return jsonify({"error": "Database connection pool is not available"}), 500
 
         user_crud = User(connection_pool)
+        
         # Ensure the acting user is not trying to block themselves
         username = user_crud.get_user_by('id', g.user_id, 'username')
         if requested_data["blocked_user"] == username:
