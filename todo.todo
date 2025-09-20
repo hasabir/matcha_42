@@ -27,6 +27,10 @@
     - fame_rating -> min: int, max: int
     - tags
 
+    [] search <- info -> list
+    [] filter_by <- condition, list -> filterd list
+    [] sort_by <- condition, list -> sorted list
+
 
 [] is user online
 
