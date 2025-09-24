@@ -36,7 +36,8 @@ class DBManager:
             self.pool.putconn(conn)
 
 
-    def select(self, table, columns="*", where=None, where_params=None, in_params=None):
+    def select(self, table, columns="*", where=None, where_params=None, in_params=None,
+               join=None, join_on=None, join_type="INNER"):
         """Safe parameterized SELECT query builder"""
         # Build SELECT fields
         if columns == "*":
@@ -49,8 +50,12 @@ class DBManager:
             table=sql.Identifier(table)
         )
 
+        # if join and join_on:
+
         params = []
+        
         # Add WHERE clause if provided
+        
         if where:
             query = sql.SQL("{base_query} WHERE {where_clause}").format(
                 base_query=query,

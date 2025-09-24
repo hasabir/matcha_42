@@ -4,6 +4,7 @@ from src.search import search_bp
 import sys
 import os
 
+from utils.validate_search_data import validate_search_data
 from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
@@ -28,7 +29,7 @@ def search_users():
     "interests": ["music", "sports"] }'''
     try:
         request_data = request.json
-        check_request = validate_profile_data(request_data)
+        check_request = validate_search_data(request_data)
         if not check_request[0]:
             return jsonify({"error": check_request[1]}), 400
         
@@ -38,6 +39,6 @@ def search_users():
             return jsonify({"error": "Database connection pool is not available"}), 500
         # Extract search criteria from request_data
         results = 'test' 
-        return jsonify({"results": results}), 200
+        return jsonify({"results": results, "check": check_request}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
