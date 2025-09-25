@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 def search_users():
     '''search for users based on criteria
     Expects a json body with search criteria.
-    Example: { "age_range": {"min_age": 20, 'max_age: 30},
+    Example: { "usenames": [user1, user2],
+    "age_range": {"min_age": 20, 'max_age: 30},
     "location": {"city":"Ben Guerir", "country": "Morocco"} or "coordinates": {"latitude": 32.2958, "lngitude": -6.9278}, "distance": 10,},
     "interests": ["music", "sports"] }'''
     # try:
@@ -38,12 +39,12 @@ def search_users():
     
     if not  connection_pool:
         return jsonify({"error": "Database connection pool is not available"}), 500
-    profile_crud = Profile(connection_pool)
     # Extract search criteria from request_data
     
     search_crud = Search(connection_pool)
     results = search_crud.search_users(request_data)
-    return jsonify({"results": results, "check": check_request}), 200
+    return jsonify({"results": results}), 200
     # except Exception as e:
     #     return jsonify({"error": str(e)}), 500
+    
     

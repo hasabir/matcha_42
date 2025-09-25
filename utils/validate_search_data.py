@@ -3,6 +3,8 @@ def validate_search_data(data):
     expected_fields = ['age_range', 'interests',
                        'fame_rating', 'location',
                        'coordinates', 'distance']
+    if filter:
+        expected_fields.append('usernames')
     
     if not data:
         return False, "No data provided."
@@ -16,8 +18,8 @@ def validate_search_data(data):
     #     return False, f"Missing required fields: {', '.join(missing_fields)}"
     # if 'location' or 'coordinates' not in data:
     #     return False, "Either 'location with city name and country name' or 'coordinates' must be provided."
-
-
+    
+   
     if 'age_range' in data:
         age_range = data['age_range']
         if (not isinstance(age_range, dict) or len(age_range) != 2 or
