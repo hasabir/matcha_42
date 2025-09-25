@@ -21,8 +21,9 @@ class DBManager:
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute(query, params or ())
-                
+                #! logger.info(f"❌❌❌Executing search query: {query} with params: {params}")
                 if hasattr(query, 'as_string') and "SELECT" in str(query).upper():
+                    #! logger.info(f"❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌ it should be a select query")
                     return cursor.fetchall()
 
                 conn.commit()
@@ -77,7 +78,7 @@ class DBManager:
             )
             params.extend(in_params)
 
-        logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
+        # logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
         return self.execute(query, params if params else None)
 
 

@@ -85,7 +85,7 @@ def confirm_email(token):
         user_data = user_crud.get_user_by_token(token)
         if not user_data:
             return jsonify({"error": "Token invalide or expired"}), 400
-        logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
+        # logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
 
         mail_service = EmailService()
 

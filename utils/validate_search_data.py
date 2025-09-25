@@ -55,7 +55,10 @@ def validate_search_data(data):
 
     if 'fame_rating' in data:
         fame_rating = data['fame_rating']
-        if not isinstance(fame_rating, int) or fame_rating < 0:
+        if not isinstance(fame_rating, dict) or 'max' not in fame_rating or \
+           not isinstance(fame_rating['max'], int) or fame_rating['max'] < 0 or \
+           ('min' in fame_rating and (not isinstance(fame_rating['min'], int) or \
+               fame_rating['min'] < 0 or fame_rating['min'] > fame_rating['max'] )):
             return False, "Invalid fame_rating. It should be a non-negative integer."   
     
     
