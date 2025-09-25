@@ -82,10 +82,10 @@ class Search(DBManager):
             conditions.append(sql.SQL("p.fame_rating BETWEEN %s AND %s"))
             params.extend([fame_rating['min'], fame_rating['max']])
         
-        # Gender condition
-        if criteria.get('gender'):
-            conditions.append(sql.SQL("p.gender = %s"))
-            params.append(criteria['gender'])
+        # # Gender condition
+        # if criteria.get('gender'):
+        #     conditions.append(sql.SQL("p.gender = %s"))
+        #     params.append(criteria['gender'])
         
         # Interests condition
         if interests:

@@ -74,3 +74,12 @@
 (4, 40.6892, -74.0445, 40.6892, -74.0445, 'Statue of Liberty', 'USA', 50), -- 8km away
 
 (5, 39.9526, -75.1652, 39.9526, -75.1652, 'Philadelphia', 'USA', 50);
+
+
+
+{
+    "latitude": 40.7580,
+    "longitude": -73.9855,
+    "city": "New York",
+    "country": "USA"
+}

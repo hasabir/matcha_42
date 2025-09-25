@@ -11,7 +11,7 @@ def validate_search_data(data):
     # missing_fields = [field for field in expected_fields if field not in data]
 
     if incorrect_fields:
-        return False, f"Unexpected fields: {', '.join(incorrect_fields)}. expected fields are: {', '.join(expected_fields + optional_fields)}"
+        return False, f"Unexpected fields: {', '.join(incorrect_fields)}. expected fields are: {expected_fields}"
     # if missing_fields:
     #     return False, f"Missing required fields: {', '.join(missing_fields)}"
     # if 'location' or 'coordinates' not in data:
@@ -28,7 +28,6 @@ def validate_search_data(data):
             return False, "Invalid age_range. It should be a dictionary with two keys: \
                 'min_age' and 'max_age', both integers, \
                     where 18 <= min_age <= max_age <= 100."
-
     if 'coordinates' in data:
     
         location = data['coordinates']
