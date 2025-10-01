@@ -65,20 +65,22 @@ class Location(DBManager):
         return None
     
     
-    def find_nearby_users(self, user_id, max_distance_km=100):
+    def find_nearby_users(self, user_id, max_distance_km=100, usernames=None):
         """
         Find users near a given user within a specified distance
         
         Args:
             user_id: ID of the user to find neighbors for
-            max_distance_meters: Maximum distance in meters (default: 100,000m = 100km)
+            max_distance_km: Maximum distance in kilometers (default: 100km)
+            usernames: Optional list of usernames to filter by
             
         Returns:
             List of nearby users with their distance in km
         """
         max_distance_meters = max_distance_km * 1000
         
-        query = sql.SQL("""
+        # Base query without username filtering
+        base_query = sql.SQL("""
             SELECT 
                 u.id,
                 u.username,
@@ -99,8 +101,27 @@ class Location(DBManager):
                 ST_SetSRID(ST_MakePoint(ul2.longitude, ul2.latitude), 4326)::geography,
                 %s
             )
-            ORDER BY distance_km ASC
         """)
         
-        return self.execute(query, (user_id, max_distance_meters))
+        if usernames:
+            # Apply username filter BEFORE distance calculation for better performance
+            placeholders = sql.SQL(',').join([sql.Placeholder()] * len(usernames))
+            query = sql.SQL("""
+                {base_query}
+                AND u.username IN ({usernames})
+                ORDER BY distance_km ASC
+            """).format(
+                base_query=base_query,
+                usernames=placeholders
+            )
+            params = (user_id, max_distance_meters, *usernames)
+        else:
+            query = sql.SQL("""
+                {base_query}
+                ORDER BY distance_km ASC
+            """).format(base_query=base_query)
+            params = (user_id, max_distance_meters)
+        
+        return self.execute(query, params)
+            
     
