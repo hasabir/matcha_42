@@ -1,0 +1,85 @@
+[ ] Profile:
+    [ ] check if user is not blocked before searching profile
+    [ ] return images of the user profile
+    [ ] return image url in the profile
+    [ ] test all the image routes
+
+[x] validate request data for like dislike
+
+[x] geo location Table Schema
+[x] create location Table
+[x] set location for user
+
+
+
+[x] block user not tested yet
+[x] view profile endpoint
+[x] report user
+[x] calculate fame rating
+[x] unblock
+
+
+
+[] searching algorithm
+    - age -> min: int, max:int
+    - location -> distance readius : int | city, countety
+    - gender -> Male: string, Female: string
+    - fame_rating -> min: int, max: int
+    - tags
+
+    [] search <- info -> list
+    [] filter_by <- condition, list -> filterd list
+    [] sort_by <- condition, list -> sorted list
+
+
+[] is user online
+
+
+
+
+[] notification
+[] chat
+
+
+
+
+
+[] matching algorithm #! graph theory?
+
+    --> variables:
+        * sexual_preferences
+
+        -> match based on
+            * locationd
+            * A maximum of common tags
+            * fame rating
+        
+        -> sort_by / filter_by
+            * age - gender -
+            * mutual likes
+            * mutual dislikes
+
+
+
+
+--------------------------------------------------------------------------------
+
+
+(1, 40.7128, -74.0060, 40.7128, -74.0060, 'New York', 'USA', 50),      -- User 1
+
+(2, 40.7138, -74.0070, 40.7138, -74.0070, 'NYC Nearby', 'USA', 50),    -- 140m away
+
+(3, 40.7580, -73.9855, 40.7580, -73.9855, 'Times Square', 'USA', 50),  -- 5km away
+
+(4, 40.6892, -74.0445, 40.6892, -74.0445, 'Statue of Liberty', 'USA', 50), -- 8km away
+
+(5, 39.9526, -75.1652, 39.9526, -75.1652, 'Philadelphia', 'USA', 50);
+
+
+
+{
+    "latitude": 40.7580,
+    "longitude": -73.9855,
+    "city": "New York",
+    "country": "USA"
+}

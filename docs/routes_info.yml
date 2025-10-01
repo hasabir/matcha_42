@@ -1,0 +1,144 @@
+routes:
+  - endpoint: "/api/profile/update_profile_picture"
+    methods: ["PUT", "DELETE"]
+    protected: true
+    description: |
+      Handle profile picture operations for the logged in user
+      PUT: Upload a new profile picture (expects file in 'profile_pic' field)
+      DELETE: Remove the profile picture (sets to null in database)
+
+  - endpoint: "/api/profile/upload_images"
+    methods: ["POST"]
+    protected: true
+    description: "Upload multiple images for the logged in user. Expects files in the 'images' field of the form data."
+
+  - endpoint: "/api/profile/get_profile_pic/<username>"
+    methods: ["GET"]
+    protected: true
+    description: "Get the profile picture of a user. If username is 'me' get the profile picture of the logged in user."
+
+  - endpoint: "/api/profile/get_images/<username>"
+    methods: ["GET"]
+    protected: true
+    description: "Get all images of a user. If username is 'me' get the images of the logged in user."
+
+  - endpoint: "/api/profile/delete_image/<int:image_id>"
+    methods: ["DELETE"]
+    protected: true
+    description: "Delete an image by its ID for the logged in user."
+
+  - endpoint: "/api/profile/add_tags"
+    methods: ["POST"]
+    protected: true
+    description: "Add interest tags for the logged in user. Expects a json body with a 'tags' field containing a list of tags."
+
+  - endpoint: "/api/profile/delete_tag"
+    methods: ["POST"]
+    protected: true
+    description: "Remove an interest tag for the logged in user. Expects a json body with a 'tag' field containing a single tag."
+
+  - endpoint: "/api/profile/get_user_tags"
+    methods: ["GET"]
+    protected: true
+    description: "Get interest tags for the logged in user."
+
+  - endpoint: "/api/profile/create_profile"
+    methods: ["POST"]
+    protected: true
+    description: "Create a profile for the logged in user. Expects a multipart/form-data request with profile fields and an optional 'profile_pic' file."
+
+  - endpoint: "/api/profile/update_profile"
+    methods: ["POST"]
+    protected: true
+    description: "Update the profile for the logged in user. Expects a json body with profile fields to update."
+  
+  - endpoint: "/api/profile/set_location"
+    methods: ["POST"]
+    protected: true
+    description: |
+      Set or update the geographical location for the logged-in user.
+      Expects a JSON payload with the following fields:
+        - latitude (float): Required. Latitude of the user's location.
+        - longitude (float): Required. Longitude of the user's location.
+        - city (string): Optional. City name.
+        - country (string): Optional. Country name.
+        - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
+
+  - endpoint: "/api/profile/get_location/<username>"
+    methods: ["GET"]
+    protected: true
+    description: |
+      Retrieve the geographical location of a specified user by username.
+      If the username is "me", retrieve the location of the logged-in user.
+      Returns latitude, longitude, city, country, and accuracy.
+
+  - endpoint: "/api/profile/nearby_users"
+    methods: ["GET"]
+    protected: true
+    description: |
+      Retrieve a list of users located within a specified distance from the logged-in user.
+      Query Parameters:
+        - max_distance (float): Optional. Maximum distance in kilometers to search for nearby users. Defaults to 100km if not provided.
+      Returns a list of users with their username and distance from the logged-in user.
+
+
+  - endpoint: "/api/profile/get_profile/<username>"
+    methods: ["GET"]
+    protected: true
+    description: |
+      Get the profile of a user by username. If username is "me" get the profile of the logged in user.
+      If the requested user has blocked the logged in user, a 403 error is returned.
+      Each time a profile is viewed, a record is created to log the visit.
+      result includes profile details and interest tags.
+    
+  - endpoint: "/api/profile/get_profile_vistors"
+    methods: ["GET"]
+    protected: true
+    description: "Get a list of users who have visited the logged in user's profile."
+
+  - endpoint: "/api/profile/get_fame_rating"
+    methods: ["GET"]
+    protected: true
+    description: "Get the fame rating of the logged in user."
+
+  - endpoint: "/api/interactions/like_dislike"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to like or dislike a user. Expects JSON body with key 'liked_user' containing the username of the user to like or dislike."
+
+  - endpoint: "/api/interactions/block"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to block a user. Expects JSON body with key 'blocked_user' containing the username of the user to block."
+
+  - endpoint: "/api/interactions/unblock"
+    methods: ["POST"]
+    protected: true
+    description: "Endpoint to unblock a user. Expects JSON body with key 'unblocked_user' containing the username of the user to unblock."
+  
+  - endpoint: "/api/interactions/get_users/<interaction_type>"
+    methods: ["GET"]
+    protected: true
+    description: "Endpoint to get users that the current user has liked or users that have liked the current user. interaction_type must be either 'liked' or 'likers'."
+  
+  - endpoint: "/api/search/filter_users"
+    methods: ["POST"]
+    protected: true
+    description: | 
+      "Filter users based on various criteria. Expects a json body with filter criteria and list of usernames.
+      Example: { "age_range": [min_age, max_age],
+      "fame_rating_range": [min_fame, max_fame],
+      "location_range_km": max_distance,
+      "interests": [tag1, tag2, tag3],
+      "usernames": [user1, user2, user3] }"
+  
+  - endpoint: "/api/search/sort_users"
+    methods: ["POST"]
+    protected: true
+    description: | 
+      "Sort users based on criteria.
+      Expects a json body with sort criteria and list of usernames.
+      Example: { "sort_by": "age" or "fame_rating" or "location" or "interests",
+      "max_distance_km": max_distance,  # Optional, only needed if sort_by is "location"
+      "order": "asc" or "desc",
+      "usernames": [user1, user2, user3] }"
