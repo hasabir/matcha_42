@@ -19,7 +19,7 @@ from src.user_profile import profile_bp
 logger = logging.getLogger(__name__)
 
 
-@profile_bp.route("/set_location", methods=["POST"])
+@profile_bp.route("/set_location", methods=["POST", "PUT"])
 @auth_guard
 def set_location():
     '''Set or update the geographical location for the logged-in user.
