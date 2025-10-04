@@ -1,6 +1,8 @@
 // src/pages/DiscoverPage.js
 import React, { useMemo, useState } from "react";
 import "./DiscoverPage.css";
+import "leaflet/dist/leaflet.css";
+
 
 // ⬇️ Map
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-leaflet";

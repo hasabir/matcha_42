@@ -1,45 +1,52 @@
-// src/components/ProfileStepOne.js
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchWithAuth, addTags } from "../utils/api";   // ← import here
+import { fetchWithAuth, addTags } from "../utils/api";
 import "./ProfileStepOne.css";
 
-const TRANSPARENT_1PX =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
+/**
+ * ProfileStepOne collects initial profile information from users:
+ * gender, sexual preferences, bio, age, location (not sent as a column),
+ * interests and photos. It sends a multipart/form-data request to
+ * /api/profile/create_profile (with profile_pic, bio, gender, sexual_preferences,
+ * age) and uploads additional photos separately. Interests are sent via
+ * /add_tags. We no longer submit any of location / lat / lng / accuracy fields
+ * because the `profiles` table does not have those columns.
+ */
 
 const ProfileStepOne = () => {
   const navigate = useNavigate();
 
-  // Backend field names
+  // State for form fields
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
-  const [sexual_preferences, setSexualPreferences] = useState("");
+  const [sexualPreferences, setSexualPreferences] = useState("");
   const [age, setAge] = useState("");
   const [location, setLocation] = useState("");
   const [interests, setInterests] = useState([]);
 
+  // Photos: each photo is { file, url, isPrimary }
+  const [photos, setPhotos] = useState([]);
   const fileInputRef = useRef(null);
+
+  // Geolocation state (retained locally but not sent)
+  const [coords, setCoords] = useState({ lat: null, lng: null, acc: null });
+  const [locating, setLocating] = useState(false);
+
+  // Form status and saving state
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Options
   const interestOptions = [
-    "Hiking","Reading","Cooking","Travel","Music",
-    "Art","Sports","Movies","Gaming","Volunteering",
+    "Hiking", "Reading", "Cooking", "Travel", "Music",
+    "Art", "Sports", "Movies", "Gaming", "Volunteering",
   ];
-
-  const toggleInterest = (item) => {
-    setInterests((prev) =>
-      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-    );
-  };
-
   const genderOptions = [
     { label: "Female", value: "Female" },
     { label: "Male", value: "Male" },
     { label: "Non-binary", value: "Non-binary" },
     { label: "Other", value: "Other" },
   ];
-
   const sexualPreferenceOptions = [
     { label: "Women", value: "Women" },
     { label: "Men", value: "Men" },
@@ -47,71 +54,168 @@ const ProfileStepOne = () => {
     { label: "All", value: "All" },
   ];
 
-  const readFirstFileAsBase64 = () =>
-    new Promise((resolve) => {
-      const file = fileInputRef.current?.files?.[0];
-      if (!file) return resolve(null);
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-    });
+  // Add files and set primary photo automatically
+  const onPickFiles = (e) => {
+    const files = Array.from(e.target.files || []);
+    const appended = files.map((f) => ({
+      file: f,
+      url: URL.createObjectURL(f),
+      isPrimary: false,
+    }));
+    const next = [...photos, ...appended].slice(0, 5);
+    if (!next.some((p) => p.isPrimary) && next.length > 0) next[0].isPrimary = true;
+    setPhotos(next);
+  };
 
+  // Set the primary photo by index
+  const setPrimary = (idx) => {
+    setPhotos((list) => list.map((p, i) => ({ ...p, isPrimary: i === idx })));
+  };
+
+  // Remove a photo; if the primary is removed, promote the first remaining
+  const removeAt = (idx) => {
+    setPhotos((list) => {
+      const updated = list.filter((_, i) => i !== idx);
+      if (!updated.some((p) => p.isPrimary) && updated.length > 0) {
+        updated[0].isPrimary = true;
+      }
+      return updated;
+    });
+  };
+
+  // Get geolocation via browser; fallback to IP-based lookup (results not sent to backend)
+  const locateByGPS = () => {
+    if (!("geolocation" in navigator)) return locateByIP();
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+          acc: Math.round(pos.coords.accuracy),
+        });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+        locateByIP();
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  };
+
+  // Fallback to IP-based geolocation (results not sent to backend)
+  const locateByIP = async () => {
+    try {
+      const res = await fetchWithAuth("http://localhost:5000/api/geo/ip");
+      const data = await res.json().catch(() => null);
+      if (data?.lat && data?.lng) {
+        setCoords({ lat: data.lat, lng: data.lng, acc: data.acc || 1000 });
+        if (!location && (data.city || data.neighborhood)) {
+          setLocation(
+            `${data.city || ""}${
+              data.neighborhood ? ", " + data.neighborhood : ""
+            }`.trim()
+          );
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Auto-locate on mount
+  useEffect(() => {
+    locateByGPS();
+  }, []);
+
+  // Toggle an interest
+  const toggleInterest = (item) => {
+    setInterests((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
+  };
+
+  // Submit handler
   const handleNext = async (e) => {
     e.preventDefault();
     setStatus(null);
 
+    // Simple validation
     if (!bio.trim()) return setStatus("Please write a short bio.");
     if (!gender) return setStatus("Please select your gender.");
-    if (!sexual_preferences) return setStatus("Please select who you are interested in.");
+    if (!sexualPreferences) return setStatus("Please select who you are interested in.");
     if (!age || isNaN(Number(age))) return setStatus("Please enter a valid age.");
     if (!location.trim()) return setStatus("Please enter your location.");
 
     setSaving(true);
     try {
-      const base64Image = await readFirstFileAsBase64();
-      const pictureToSend = base64Image || TRANSPARENT_1PX;
+      // Split primary and additional photos
+      const primaryFile = photos.find((p) => p.isPrimary)?.file || null;
+      const otherFiles = photos.filter((p) => !p.isPrimary).map((p) => p.file);
 
-      const payload = {
-        bio,
-        gender,
-        sexual_preferences,
-        age: Number(age),
-        location: location.trim(),
-        profile_picture: pictureToSend,
-        // do NOT include interests here — backend profiles table has no "interests" column
-      };
+      // Construct multipart form data; send only known columns
+      const formData = new FormData();
+      if (primaryFile) formData.append("profile_pic", primaryFile);
+      formData.append("bio", bio);
+      formData.append("gender", gender);
+      formData.append("sexual_preferences", sexualPreferences);
+      formData.append("age", Number(age));
 
-      // 1) Create the profile
-      const res = await fetchWithAuth(
-        "http://localhost:5000/api/profile/create_profile",
-        { method: "POST", body: JSON.stringify(payload) }
-      );
-      const data = await res.json();
-      console.log("create_profile response:", data);
+      // Get token from localStorage
+      const token = localStorage.getItem("access_token");
 
-      if (!res.ok) {
-        if (Array.isArray(data?.details) && data.details.length) {
-          setStatus(`Fix these fields: ${data.details.join(", ")}`);
+      // 1) POST to create_profile
+      const createRes = await fetch("http://localhost:5000/api/profile/create_profile", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok) {
+        if (Array.isArray(createData?.details) && createData.details.length) {
+          setStatus(`Fix these fields: ${createData.details.join(", ")}`);
         } else {
-          setStatus(data.error || data.message || "Could not save profile.");
+          setStatus(
+            createData.error || createData.message || "Could not save profile."
+          );
         }
+        setSaving(false);
         return;
       }
 
-      // 2) Add interests as tags via /add_tags (only if the user picked some)
-      if (interests.length) {
-        const tagsRes = await addTags(interests);
-        if (!tagsRes.ok) {
-          const t = await tagsRes.json().catch(() => ({}));
-          console.warn("add_tags failed:", t);
-          // We won't block navigation if tag insertion fails
+      // 2) Upload remaining photos
+      if (otherFiles.length) {
+        const uploadForm = new FormData();
+        otherFiles.forEach((file) => uploadForm.append("images", file));
+        try {
+          await fetch("http://localhost:5000/api/profile/upload_images", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: uploadForm,
+          });
+        } catch (ex) {
+          console.warn("upload_images failed", ex);
         }
       }
 
-      // 3) Go to dashboard
+      // 3) Send interests as tags
+      if (interests.length) {
+        const tagsRes = await addTags(interests);
+        if (!tagsRes.ok) {
+          const body = await tagsRes.json().catch(() => ({}));
+          console.warn("add_tags failed:", body);
+        }
+      }
+
+      // 4) Go to the next step
       navigate("/dashboard");
     } catch (err) {
+      console.error(err);
       setStatus("Network error. Please try again.");
     } finally {
       setSaving(false);
@@ -133,9 +237,9 @@ const ProfileStepOne = () => {
           {genderOptions.map((opt) => (
             <button
               key={opt.value}
+              type="button"
               className={`choice-btn ${gender === opt.value ? "selected" : ""}`}
               onClick={() => setGender(opt.value)}
-              type="button"
             >
               {opt.label}
             </button>
@@ -147,9 +251,9 @@ const ProfileStepOne = () => {
           {sexualPreferenceOptions.map((opt) => (
             <button
               key={opt.value}
-              className={`choice-btn ${sexual_preferences === opt.value ? "selected" : ""}`}
-              onClick={() => setSexualPreferences(opt.value)}
               type="button"
+              className={`choice-btn ${sexualPreferences === opt.value ? "selected" : ""}`}
+              onClick={() => setSexualPreferences(opt.value)}
             >
               {opt.label}
             </button>
@@ -163,7 +267,7 @@ const ProfileStepOne = () => {
           className="bio"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-        ></textarea>
+        />
 
         <div className="inline-two">
           <div className="inline-field">
@@ -180,13 +284,28 @@ const ProfileStepOne = () => {
           </div>
           <div className="inline-field">
             <label htmlFor="location">Location</label>
-            <input
-              id="location"
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="City, Country"
-            />
+            <div className="location-row">
+              <input
+                id="location"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="City, Country"
+              />
+              <button
+                type="button"
+                className="gps-btn"
+                onClick={locateByGPS}
+                disabled={locating}
+              >
+                {locating ? "Locating…" : "Use my GPS"}
+              </button>
+            </div>
+            {coords.lat && coords.lng && (
+              <small className="coords-hint">
+                Detected: {coords.lat}, {coords.lng} (±{coords.acc}m)
+              </small>
+            )}
           </div>
         </div>
 
@@ -195,30 +314,46 @@ const ProfileStepOne = () => {
           {interestOptions.map((opt) => (
             <button
               key={opt}
+              type="button"
               className={`chip ${interests.includes(opt) ? "selected" : ""}`}
               onClick={() => toggleInterest(opt)}
-              type="button"
             >
               {opt}
             </button>
           ))}
         </div>
 
+        {/* Photo upload */}
         <h2>Add photos</h2>
         <p className="photo-hint">Add up to 5 photos, including a profile picture</p>
         <div className="photo-upload">
           <input
             ref={fileInputRef}
-            type="file"
             id="fileInput"
+            type="file"
             accept="image/*"
             multiple
+            onChange={onPickFiles}
             style={{ display: "none" }}
           />
-          <label htmlFor="fileInput" className="upload-box">
-            <p>Upload Photos</p>
-            <span>Drag and drop or browse to upload</span>
-          </label>
+        </div>
+        <label htmlFor="fileInput" className="upload-box">
+          <p>Upload Photos</p>
+          <span>Drag and drop or browse to upload</span>
+        </label>
+
+        <div className="thumbs">
+          {photos.map((p, i) => (
+            <div key={i} className={`thumb ${p.isPrimary ? "primary" : ""}`}>
+              <img alt="thumbnail" src={p.url} />
+              <div className="thumb-actions">
+                <button type="button" onClick={() => setPrimary(i)}>
+                  {p.isPrimary ? "Profile Photo" : "Set as Profile"}
+                </button>
+                <button type="button" onClick={() => removeAt(i)}>Remove</button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <button className="next-btn" onClick={handleNext} disabled={saving}>

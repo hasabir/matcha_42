@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     first_name TEXT,
     last_name TEXT,
-    -- location , --TODO -> does it need to be here or in the profile?
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     verification_token TEXT, 
     verified BOOLEAN DEFAULT FALSE, 
@@ -16,6 +15,23 @@ CREATE TABLE IF NOT EXISTS users (
     reset_password_token TEXT,
     active BOOLEAN DEFAULT FALSE,
     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- User Locations Table
+CREATE TABLE IF NOT EXISTS user_locations (
+    location_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    city VARCHAR(100),
+    country VARCHAR(100),
+    accuracy INTEGER,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_current_location UNIQUE(user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_locations_geo  ON user_locations USING GIST (
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
 );
 
 -- Profiles Table
@@ -26,7 +42,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     age INTEGER,
     gender TEXT,
     sexual_preferences TEXT,
-    user_location TEXT,
     fame_rating INTEGER DEFAULT 0,
     profile_picture TEXT
 );
@@ -70,12 +85,11 @@ CREATE TABLE IF NOT EXISTS connections (
 
 -- Visits Table
 CREATE TABLE IF NOT EXISTS visits (
-    viewer_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    viewed_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (viewer_id, viewed_id, viewed_at)
+    visitor_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    visited_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (visitor_id, visited_id)
 );
-
 -- Blocks Table
 CREATE TABLE IF NOT EXISTS blocks (
     blocker_id INT REFERENCES users(id) ON DELETE CASCADE,  
@@ -86,13 +100,12 @@ CREATE TABLE IF NOT EXISTS blocks (
 
 -- Reports Table
 CREATE TABLE IF NOT EXISTS reports (
-    report_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     reporter_id INT REFERENCES users(id) ON DELETE CASCADE,  
     reported_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    reason TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- ! i don't wnat to do :( reason TEXT,
+    PRIMARY KEY (reporter_id, reported_id)
 );
-
 -- Conversations Table
 CREATE TABLE IF NOT EXISTS conversations (
     conversation_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

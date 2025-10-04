@@ -1,11 +1,8 @@
-// src/components/ForgotPassword.js
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";   // ✅ useNavigate instead of redirect
-import "./ForgotPassword.css"; 
+import { Link } from "react-router-dom";
+import "./ForgotPassword.css";
 
-const ForgotPassword = () => {
-  const navigate = useNavigate();   // ✅ initialize navigate
-
+export default function ForgotPassword() {
   const [username, setUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -16,7 +13,8 @@ const ForgotPassword = () => {
     setErr(null);
     setMsg(null);
 
-    if (!username.trim()) {
+    const u = username.trim();
+    if (!u) {
       setErr("Please enter your username.");
       return;
     }
@@ -27,20 +25,14 @@ const ForgotPassword = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username: username.trim() }),
+        body: JSON.stringify({ username: u }),
       });
 
-      console.log("forgot = ", res.ok);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Something went wrong.");
-      } else {
-        // ✅ redirect user to reset password page, passing username in query
-        navigate(`/reset-password?username=${encodeURIComponent(username.trim())}`);
-      }
+      if (!res.ok) throw new Error(data?.error || "Something went wrong.");
 
       setMsg(
-        "If an account exists for that username, we just sent instructions to reset your password."
+        "If an account exists for that username, we sent instructions to reset your password."
       );
     } catch (e2) {
       setErr(e2.message);
@@ -54,7 +46,7 @@ const ForgotPassword = () => {
       <div className="fp-card">
         <h1>Forgot your password?</h1>
         <p className="fp-sub">
-          Enter your username and we’ll send you instructions to reset your password.
+          Enter your username and we’ll send you a reset link.
         </p>
 
         <form onSubmit={onSubmit} className="fp-form">
@@ -80,6 +72,4 @@ const ForgotPassword = () => {
       </div>
     </div>
   );
-};
-
-export default ForgotPassword;
+}

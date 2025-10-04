@@ -1,4 +1,3 @@
-// src/components/ResetPassword.js
 import React, { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import "./ressetpassword.css";
@@ -10,10 +9,10 @@ export default function ResetPassword() {
   const [params] = useSearchParams();
 
   const tokenFromLink = params.get("token") || "";
-  const emailFromLink = (params.get("email") || "").toLowerCase();
+  const usernameFromLink = (params.get("username") || "").toLowerCase();
 
   const [form, setForm] = useState({
-    email: emailFromLink,
+    username: usernameFromLink,
     newPassword: "",
     confirm: "",
   });
@@ -24,7 +23,7 @@ export default function ResetPassword() {
   const canSubmit = useMemo(() => {
     return (
       tokenFromLink &&
-      form.email.trim() &&
+      form.username.trim() &&
       form.newPassword.length >= MIN_LEN &&
       form.newPassword === form.confirm
     );
@@ -51,7 +50,7 @@ export default function ResetPassword() {
         credentials: "include",
         body: JSON.stringify({
           token: tokenFromLink,
-          email: form.email.trim(),
+          username: form.username.trim(),
           new_password: form.newPassword,
         }),
       });
@@ -59,7 +58,6 @@ export default function ResetPassword() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Reset failed");
 
-      if (data.access_token) localStorage.setItem("access_token", data.access_token);
       setMsg("Password set successfully. You can sign in now.");
       setTimeout(() => navigate("/signin"), 900);
     } catch (e2) {
@@ -75,18 +73,18 @@ export default function ResetPassword() {
         <h1 className="rp-title">Set New Password</h1>
 
         <form className="rp-form" onSubmit={onSubmit}>
-          {!emailFromLink && (
+          {!usernameFromLink && (
             <>
-              <label className="rp-label" htmlFor="email">Email</label>
+              <label className="rp-label" htmlFor="username">Username</label>
               <input
-                id="email"
-                name="email"
+                id="username"
+                name="username"
                 className="rp-input"
-                placeholder="you@example.com"
-                value={form.email}
+                placeholder="your username"
+                value={form.username}
                 onChange={onChange}
-                autoComplete="email"
-                type="email"
+                autoComplete="username"
+                type="text"
               />
             </>
           )}

@@ -26,9 +26,14 @@ def get_tags(request_data):
     return parsed_tags
     # if request_data[""]
 
+
+
 @profile_bp.route("/add_tags", methods=["POST"])
 @auth_guard
 def add_tags():
+    '''add interest tags for the logged in user
+    Expects a json body with a "tags" field containing a list of tags.
+    Example: { "tags": ["music", "sports", "travel"] }'''
     try:
         request_data = request.json
         connection_pool = current_app.config["CONNECTION_POOL"]
@@ -47,6 +52,9 @@ def add_tags():
 @profile_bp.route("/delete_tag", methods=["POST"])
 @auth_guard
 def delet_tag():
+    '''remove an interest tag for the logged in user    
+    Expects a json body with a "tag" field containing a single tag.
+    Example: { "tag": "music" }'''
     try:
         request_data = request.json
         connection_pool = current_app.config["CONNECTION_POOL"]
@@ -70,6 +78,7 @@ def delet_tag():
 @profile_bp.route("/get_user_tags") #! do I really need this endpoint 🤪
 @auth_guard
 def get_user_interests():
+    '''get interest tags for the logged in user'''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not  connection_pool:

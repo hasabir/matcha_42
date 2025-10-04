@@ -3,12 +3,11 @@ from flask import g, current_app
 import uuid
 from psycopg2 import sql
 import psycopg2.extras
-import sqlparse
 
-import sqlparse
 from psycopg2 import sql  # Required for proper SQL composition
 logging.basicConfig(level=logging.DEBUG)
 
+logger = logging.getLogger(__name__)
 
 
 class DBManager:
@@ -21,10 +20,10 @@ class DBManager:
         conn = self.pool.getconn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                logging.debug("----------- >Executed query: %s with params: %s", query, params)
                 cursor.execute(query, params or ())
-                
+                #! logger.info(f"❌❌❌Executing search query: {query} with params: {params}")
                 if hasattr(query, 'as_string') and "SELECT" in str(query).upper():
+                    #! logger.info(f"❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌ it should be a select query")
                     return cursor.fetchall()
 
                 conn.commit()
@@ -37,38 +36,9 @@ class DBManager:
         finally:
             self.pool.putconn(conn)
 
-    # def select(self, table, columns="*", where=None, where_params=None, in_params=None):
-    #     """Safe parameterized query builder"""
-    #     query = sql.SQL("SELECT {fields} FROM {table}").format(
-    #         fields=sql.SQL(', ').join(
-    #             [sql.Identifier(col.strip()) for col in columns.split(',')]
-    #         ) if columns != "*" else sql.SQL("*"),
-    #         table=sql.Identifier(table)
-    #     )
-        
-    #     if where and not in_params:
-    #         query = sql.SQL("{base_query} WHERE {where_clause}").format(
-    #             base_query=query,
-    #             where_clause=sql.SQL(where)
-    #         )
-    #     elif where and in_params:
-    #         query = sql.SQL("{base_query} WHERE {where_clause} IN ({in_parameters})").format(
-    #         base_query=query,
-    #         where_clause=sql.SQL(where),
-    #         in_parameters=sql.SQL(', ').join(map(sql.Placeholder, range(len(in_params))))
-    #         )
-    #     logging.info("Executing select query: %s with params: %s", query, where_params)
-        
-    #     if where_params:
-    #         return self.execute(query, where_params)
-    #     else:
-    #         return self.execute(query)
 
-
-
-
-
-    def select(self, table, columns="*", where=None, where_params=None, in_params=None):
+    def select(self, table, columns="*", where=None, where_params=None, in_params=None,
+               join=None, join_on=None, join_type="INNER"):
         """Safe parameterized SELECT query builder"""
         # Build SELECT fields
         if columns == "*":
@@ -81,8 +51,12 @@ class DBManager:
             table=sql.Identifier(table)
         )
 
+        # if join and join_on:
+
         params = []
+        
         # Add WHERE clause if provided
+        
         if where:
             query = sql.SQL("{base_query} WHERE {where_clause}").format(
                 base_query=query,
@@ -104,19 +78,21 @@ class DBManager:
             )
             params.extend(in_params)
 
-        logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
+        # logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
         return self.execute(query, params if params else None)
 
 
-
-
-
-
-
-
-
-
-    def insert(self, table, data, on_conflict=None):
+    def insert(self, table, data, on_conflict=None, conflict_target=None, update_set=None):
+        """
+        Insert data into table with optional UPSERT support
+        
+        Args:
+            table: Table name
+            data: Dictionary of column: value pairs
+            on_conflict: Conflict action ('NOTHING', 'UPDATE')
+            conflict_target: List of columns for conflict detection
+            update_set: Dictionary of columns to update on conflict
+        """
         if not isinstance(data, dict):
             raise ValueError("Data must be a dictionary")
         if not data:
@@ -132,23 +108,40 @@ class DBManager:
         )
         
         if on_conflict:
-            query = sql.SQL("{base_query} ON CONFLICT ({fields}) DO {action}").format(
-                base_query=query,
-                fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
-                action=sql.SQL(on_conflict)
+            if not conflict_target:
+                raise ValueError("conflict_target is required for ON CONFLICT")
+            
+            if on_conflict.upper() == 'UPDATE' and not update_set:
+                raise ValueError("update_set is required for ON CONFLICT UPDATE")
+            
+            conflict_clause = sql.SQL("({})").format(
+                sql.SQL(", ").join(map(sql.Identifier, conflict_target))
             )
             
-        logger = logging.getLogger(__name__)
-        # Get a connection for as_string (for debugging only, not for execution)
-        # conn = self.pool.getconn()
-        # try:
-        #     logger.debug(f"👉 👉 👉 👉 👉 👉 query = {query.as_string(conn)}")
-        # finally:
-        #     self.pool.putconn(conn)
+            if on_conflict.upper() == 'NOTHING':
+                query = sql.SQL("{base_query} ON CONFLICT {conflict_target} DO NOTHING").format(
+                    base_query=query,
+                    conflict_target=conflict_clause
+                )
+            elif on_conflict.upper() == 'UPDATE':
+                # Use EXCLUDED to reference the values that would have been inserted
+                set_clauses = []
+                for col in update_set.keys():
+                    set_clauses.append(sql.SQL("{column} = EXCLUDED.{column}").format(
+                        column=sql.Identifier(col)
+                    ))
+                
+                query = sql.SQL("{base_query} ON CONFLICT {conflict_target} DO UPDATE SET {set_clause}").format(
+                    base_query=query,
+                    conflict_target=conflict_clause,
+                    set_clause=sql.SQL(", ").join(set_clauses)
+                )
+                
+                # Don't extend values as we're using EXCLUDED
+            else:
+                raise ValueError("on_conflict must be 'NOTHING' or 'UPDATE'")
 
-        logging.info("Inserting into %s: %s", table, data)
         return self.execute(query, values)
-
 
 
     def update(self, table, data, where=None, where_params=None):
@@ -203,13 +196,11 @@ class DBManager:
         
         # Add WHERE clause if provided
         if where:
-            # The key fix: Use sql.SQL() for the where clause to allow multiple conditions
             query = sql.SQL("{base_query} WHERE {where_clause}").format(
                 base_query=query,
-                where_clause=sql.SQL(where)  # This allows multiple conditions
+                where_clause=sql.SQL(where)
             )
         
-        logging.info("Executing delete query: %s with params: %s", query, where_params)
         return self.execute(query, where_params)
             
         

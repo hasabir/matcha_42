@@ -76,7 +76,8 @@ class EmailService:
             logger.info(f"✅ Verification email sent to {email}")
             
         except Exception as e:
-            logger.error(f"❌ Failed to send email to {email}: {e}")
+            raise Exception(f"Failed to send email: {e}")
+            # logger.error(f"❌ Failed to send email to {email}: {e}")
             # Don't raise the error - still return the token for database storage
             # The user can request a new email later if needed
             

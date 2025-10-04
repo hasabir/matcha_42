@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 def validate_profile_data(request_data):
     """Validate profile creation data with detailed error messages"""
     
+    logger.debug(f"⚠️⚠️⚠️ request data -> {request_data} ⚠️⚠️⚠️")
     # Define required fields with validation rules
     required_fields = {
         'bio': {'min_length': 0, 'max_length': 500},
@@ -16,7 +17,6 @@ def validate_profile_data(request_data):
         # 'profile_picture': {'type': 'text'}, 
         'sexual_preferences': {'allowed_values': ['Men', 'Women', 'Both', 'All']}
     }
-    logger.debug(f"⚠️⚠️⚠️ request data -> {request_data} ⚠️⚠️⚠️")
     
     
     # errors = "there is no error for the moment"
