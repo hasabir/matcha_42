@@ -23,7 +23,7 @@ services:
 
   web:
     build:
-      context: ../../../matcha_42
+      context: ../../../matcha_backend
       dockerfile: build/docker/backend.dockerfile
     container_name: matcha_backend
     volumes:

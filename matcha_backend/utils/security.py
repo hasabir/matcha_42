@@ -67,29 +67,49 @@ class SecurityUtils:
 
 logger = logging.getLogger(__name__)
 
-
 def auth_guard(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
             return jsonify({'error': 'Token is missing or invalid format'}), 401
-        
-        token = auth_header.split(' ')[1]  #! Extract token from "Bearer <token>" in react header
-        
+
+        token = auth_header.split(' ')[1]
+
         # Verify token
         payload = SecurityUtils.verify_jwt_token(token)
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token'}), 403
-        
-        # Add user_id to request context for use in the route
+
         if 'error' in payload:
             return jsonify({'error': payload['error']}), 403
-        g.user_id = payload['user_id']
 
+        # Attach user_id to request context
+        g.user_id = payload['user_id']
         return f(*args, **kwargs)
-    
+
     return decorated
+
+# def auth_guard(f):
+#     @wraps(f)
+#     def decorated(*args, **kwargs):
+#         auth_header = request.headers.get('Authorization')
+#         if not auth_header or not auth_header.startswith('Bearer '):
+#             return jsonify({'error': 'Token is missing or invalid format'}), 401
+        
+#         token = auth_header.split(' ')[1]  #! Extract token from "Bearer <token>" in react header
+        
+#         # Verify token
+#         payload = SecurityUtils.verify_jwt_token(token)
+#         if not payload:
+#             return jsonify({'error': 'Invalid or expired token'}), 403
+        
+#         # Add user_id to request context for use in the route
+#         if 'error' in payload:
+#             return jsonify({'error': payload['error']}), 403
+#         g.user_id = payload['user_id']
+
+#         return f(*args, **kwargs)
+    
+#     return decorated
 
     # @staticmethod
     # def generate_jwt_token(user_id, expires_hours=24):
