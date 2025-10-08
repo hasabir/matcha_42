@@ -66,25 +66,49 @@ class Profile(DBManager):
                 where_params=(user_id, tag_id)
             )
 
+    # def get_user_interests(self, user_id):
+    #     logger = logging.getLogger(__name__)
+        
+    #     result = self.select('user_tags', "tag_id", where="user_id = %s", where_params=(user_id,))
+
+    #     tag_ids = [tag['tag_id'] for tag in result]
+    #     if not tag_ids:
+    #         return []
+
+        
+    #     name_results = self.select('tags', "tag_name", where="tag_id", in_params=(tag_ids,))
+    #     logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
+    #     # if name_results is None:
+    #     #     return []
+    #     name_tags = [tag['tag_name'] for tag in name_results]
+        
+    #     return name_tags
+    
     def get_user_interests(self, user_id):
         logger = logging.getLogger(__name__)
-        
-        result = self.select('user_tags', "tag_id", where="user_id = %s", where_params=(user_id,))
-
-        tag_ids = [tag['tag_id'] for tag in result]
+    
+        # 1) fetch tag ids from the join table (make sure this table name matches your schema)
+        rows = self.select(
+            'user_tags',             # <-- if your table is actually user_interests, change this
+            columns="tag_id",
+            where="user_id = %s",
+            where_params=(user_id,)
+        )
+        tag_ids = [r['tag_id'] for r in rows] if rows else []
         if not tag_ids:
             return []
+    
+        # 2) fetch tag names using ANY(array)
+        name_rows = self.select(
+            'tags',
+            columns='tag_name',
+            where='tag_id = ANY(%s)',
+            where_params=(tag_ids,)  # pass list as a single param
+        )
+    
+        logger.debug("get_user_interests: tag_ids=%s names=%s", tag_ids, name_rows)
+        return [r['tag_name'] for r in (name_rows or [])]
 
-        
-        name_results = self.select('tags', "tag_name", where="tag_id", in_params=(tag_ids,))
-        logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
-        # if name_results is None:
-        #     return []
-        name_tags = [tag['tag_name'] for tag in name_results]
-        
-        return name_tags
-    
-    
     def insert_images(self, image_path, user_id):
         try:
             self.insert("images", {"user_id" : user_id,

@@ -31,11 +31,11 @@ if __name__ == '__main__':
     mail = Mail(app)
 
     
-    CORS(app, 
-        supports_credentials=True,  # ← THIS allows cookies to be sent/received
-        # origins=['http://localhost:3000'],
-        allow_headers=['Authorization', 'Content-Type']  # What headers to accept
-    )
+    CORS(app,
+         supports_credentials=True,
+         resources={r"/api/*": {"origins": ["http://localhost:3000"]}},
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     
     connection_pool = connection.get_connection()
     create_tables(connection_pool)
