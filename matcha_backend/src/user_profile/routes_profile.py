@@ -50,7 +50,7 @@ def create_profile():
         profile_path = upload_pictures(requested_file, g.user_id) if requested_file else None
         url_path = url_for('static', filename=profile_path) if requested_file else None
         request_data["profile_picture"] = url_path if requested_file else None
-        request_data["fame_rating"] = calculate_fame_rating()
+        request_data["fame_rating"] = calculate_fame_rating(type='create_profile')
 
         profile_crud.create_profile(request_data)
         return jsonify({"status": "ok"}), 201

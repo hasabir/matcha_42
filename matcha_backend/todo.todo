@@ -4,19 +4,8 @@
     [ ] return image url in the profile
     [ ] test all the image routes
 
-[x] validate request data for like dislike
-
-[x] geo location Table Schema
-[x] create location Table
-[x] set location for user
-
-
-
-[x] block user not tested yet
-[x] view profile endpoint
-[x] report user
-[x] calculate fame rating
-[x] unblock
+[] logout
+[] delet user
 
 
 
@@ -83,3 +72,13 @@
     "city": "New York",
     "country": "USA"
 }
+
+{
+    "username" : "",
+    "email" : "",
+    "password": "1212",
+}
+
+
+
+⚡ 👉 🔍 ✅ ❌ ⚠️ 👈

@@ -8,7 +8,8 @@ import os
 from src.auth import auth_bp
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
-from utils.security import SecurityUtils
+from utils.validate_user_data import validate_user_data
+from utils.security import SecurityUtils, auth_guard
 
 from  database.crud.user_crud import User
 from database.crud.profile_crud import Profile
@@ -24,6 +25,9 @@ def register():
     try:
         user_data = request.json
         # print("\033[92mUser data:\033[0m", user_data)
+        if validate_user_data(user_data) is not True:
+            return jsonify({"error": "Invalid input data,\
+                to register user must provide email, username, first_name, last_name"}), 400
         logging.debug(f"@Registering user: {user_data['username']} with email: {user_data['email']}")
         connection_pool = current_app.config["CONNECTION_POOL"]
         
@@ -229,6 +233,20 @@ def login():
 def logout():
     ...
 
+@auth_bp.route('/delete_user', methods=['DELETE'])
+@auth_guard
+def delete_user():
+    try:
+        # check if user is authenticated
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        user_crud = User(connection_pool)
+        user_crud.delete_user(g.user_id)
+        return jsonify({"status": "ok", "message": "User deleted successfully"}),
+    except Exception as e:
+        logging.error(f"Error during user deletion: {e}")
+        return jsonify({"error": str(e), "message": "User deletion failed"}), 400
 
 @auth_bp.route('/users', methods=['GET'])
 def get_all_users():

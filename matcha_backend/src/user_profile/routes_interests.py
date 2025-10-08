@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 def get_tags(request_data):
     if not request_data or "tags" not in request_data:
-        return "error: missing required field : <tags>"
+        return 0, "error: missing required field : <tags>"
     if not isinstance(request_data["tags"], list):
-        return "error: tags must be in a list"
+        return 0, "error: tags must be in a list"
     parsed_tags = []
     for tag in request_data["tags"]:
         parsed_tags.append(tag.strip("#").lower())
-    return parsed_tags
+    return 1, parsed_tags
     # if request_data[""]
 
 
@@ -36,11 +36,15 @@ def add_tags():
     Example: { "tags": ["music", "sports", "travel"] }'''
     try:
         request_data = request.json
+        
         connection_pool = current_app.config["CONNECTION_POOL"]
         profile_crud = Profile(connection_pool)
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         tags = get_tags(request_data)
+        if tags[0] != 1:
+            return jsonify({"error": tags[1]}), 415
+        tags = tags[1]
         for tag in tags:
             tag_result = profile_crud.insert_tag(tag)
             profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
