@@ -50,51 +50,63 @@
 
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";   // ✅ import navigate
+import { useNavigate } from "react-router-dom";
 import "./RegisterPage.css";
 
 const RegisterPage = () => {
-  const navigate = useNavigate();                // ✅ initialize navigate
+  const navigate = useNavigate();
 
-  // State to hold form fields
   const [formData, setFormData] = useState({
     email: "",
     username: "",
-    first_name: "",  // note the underscore
+    first_name: "",
     last_name: "",
     password: ""
   });
 
   const [status, setStatus] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Update state when the user types in a field
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((s) => ({ ...s, [e.target.name]: e.target.value }));
   };
 
-  // Send data to the back-end
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
+    setStatus(null);
 
     try {
+      const payload = {
+        email: formData.email.trim(),
+        username: formData.username.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        password: formData.password
+      };
+
       const response = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-      console.log("9******************************", data);
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        // ✅ show message, then auto-redirect after 2s
+        // Success: show message then redirect to signin
         setStatus("Check your email to verify your account.");
         setTimeout(() => navigate("/signin"), 2000);
       } else {
-        setStatus(data.error || data.message);
+        // Error: show precise message, no redirect
+        setStatus(data.error || data.message || "Registration failed.");
       }
-    } catch (error) {
+    } catch (err) {
       setStatus("Could not complete registration. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -102,7 +114,8 @@ const RegisterPage = () => {
     <div className="register-container">
       <div className="form-wrapper">
         <h1>Create your account</h1>
-        <form className="register-form" onSubmit={handleSubmit}>
+
+        <form className="register-form" onSubmit={handleSubmit} noValidate>
           <input
             type="email"
             name="email"
@@ -110,7 +123,9 @@ const RegisterPage = () => {
             value={formData.email}
             onChange={handleChange}
             required
+            autoComplete="email"
           />
+
           <input
             type="text"
             name="username"
@@ -118,7 +133,9 @@ const RegisterPage = () => {
             value={formData.username}
             onChange={handleChange}
             required
+            autoComplete="username"
           />
+
           <div className="name-fields">
             <input
               type="text"
@@ -127,6 +144,7 @@ const RegisterPage = () => {
               value={formData.first_name}
               onChange={handleChange}
               required
+              autoComplete="given-name"
             />
             <input
               type="text"
@@ -135,8 +153,10 @@ const RegisterPage = () => {
               value={formData.last_name}
               onChange={handleChange}
               required
+              autoComplete="family-name"
             />
           </div>
+
           <input
             type="password"
             name="password"
@@ -144,10 +164,15 @@ const RegisterPage = () => {
             value={formData.password}
             onChange={handleChange}
             required
+            autoComplete="new-password"
           />
 
-          <button type="submit" className="register-btn">
-            Register
+          <button
+            type="submit"
+            className="register-btn"
+            disabled={submitting}
+          >
+            {submitting ? "Registering…" : "Register"}
           </button>
         </form>
 
