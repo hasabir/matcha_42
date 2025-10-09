@@ -162,6 +162,7 @@ from database.crud.matching_operations_crud import Matching
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
 from database.crud.interactions_crud import Interactions
+from database.crud.notification_crud import Notification
 from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
 from utils.manage_interactions import ManageInteractions
@@ -208,14 +209,48 @@ def like_dislike():
         manager = ManageInteractions(pool, interactions_crud)
         action = manager.check_action(g.user_id, target_user["id"])   # returns "like" or "dislike"
 
+        notification_crud = Notification(pool)
+
         if action == "like":
             interactions_crud.like_user()
             new_rating = calculate_fame_rating(target_profile['fame_rating'], 'like')
             profile_crud.update_fame_rating(target_user["id"], new_rating)
+            
+            # Create notification for the liked user
+            notification_crud.create_notification(
+                user_id=target_user["id"],
+                type='like',
+                from_user_id=g.user_id,
+                message=f"{my_username} liked your profile"
+            )
+            
+            # Check if it's a match (mutual like)
+            if interactions_crud.is_liked_by():
+                # Create match notifications for both users
+                notification_crud.create_notification(
+                    user_id=target_user["id"],
+                    type='match',
+                    from_user_id=g.user_id,
+                    message=f"You matched with {my_username}!"
+                )
+                notification_crud.create_notification(
+                    user_id=g.user_id,
+                    type='match',
+                    from_user_id=target_user["id"],
+                    message=f"You matched with {liked_user}!"
+                )
         else:
             interactions_crud.dislike_user()
             new_rating = calculate_fame_rating(target_profile['fame_rating'], 'dislike')
             profile_crud.update_fame_rating(target_user["id"], new_rating)
+            
+            # Create unlike notification
+            notification_crud.create_notification(
+                user_id=target_user["id"],
+                type='unlike',
+                from_user_id=g.user_id,
+                message=f"{my_username} unliked your profile"
+            )
 
         return jsonify({
             "status": "ok",

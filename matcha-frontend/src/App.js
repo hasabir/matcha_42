@@ -14,6 +14,9 @@ import AccountSettingsPage from "./components/AccountSettingsPage";
 import VerifyEmailPage from "./components/VerifyEmailPage";
 import LandingPage from "./components/landingpage";
 import Dashboard from "./components/dashboard";
+import Chat from "./components/Chat";
+import UserProfile from "./components/UserProfile";
+import NotificationsPage from "./components/NotificationsPage";
 
 // Password reset flow
 import ForgotPassword from "./components/ForgotPassword";
@@ -41,6 +44,9 @@ function App() {
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/settings" element={<AccountSettingsPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/messages" element={<Chat />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/u/:username" element={<UserProfile />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -21,10 +21,16 @@ class User(DBManager):
         return self.insert('users', user_data)
     
 
-    def update_user(self, set_data, username):
-        """Update user information"""
+    def update_user(self, set_data, username=None, user_id=None):
+        """Update user information by username or user_id"""
         logging.debug(f"****************************Updating user set_data: {set_data}")
-        return self.update('users', set_data, where="username = %s", where_params=(username,))
+        
+        if user_id is not None:
+            return self.update('users', set_data, where="id = %s", where_params=(user_id,))
+        elif username is not None:
+            return self.update('users', set_data, where="username = %s", where_params=(username,))
+        else:
+            raise ValueError("Either username or user_id must be provided")
 
     # def delete_user(self, user_id):
     #     """Delete a user by ID"""

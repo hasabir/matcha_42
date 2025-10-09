@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../utils/api";
+import { api, chatApi } from "../utils/api";
 import "./dashboard.css";
 
 const FALLBACK_AVATAR =
@@ -27,10 +27,13 @@ export default function Dashboard() {
   const [err, setErr] = useState(null);
 
   const displayName = useMemo(() => {
-    if (me.first_name || me.last_name) {
-      return `${me.first_name || ""} ${me.last_name || ""}`.trim();
+    const firstName = me.first_name?.trim();
+    const lastName = me.last_name?.trim();
+    
+    if (firstName || lastName) {
+      return `${firstName || ""} ${lastName || ""}`.trim();
     }
-    return me.username || "there";
+    return me.username?.trim() || "there";
   }, [me]);
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export default function Dashboard() {
         const meRes = await api.meProfile();
         const meJson = await meRes.json();
         if (!meRes.ok) throw new Error(meJson?.error || "Failed to load profile");
+        
         const r = meJson.result || {};
         const hydrated = {
           username: r.username || "",
@@ -62,6 +66,18 @@ export default function Dashboard() {
             const picJson = await picRes.json();
             if (picRes.ok && picJson?.result) hydrated.profile_picture = picJson.result;
           } catch {}
+        }
+
+        // Get unread message count
+        let unreadCount = 0;
+        try {
+          const unreadRes = await chatApi.getUnreadCount();
+          const unreadJson = await unreadRes.json();
+          if (unreadRes.ok && unreadJson?.unread_count !== undefined) {
+            unreadCount = unreadJson.unread_count;
+          }
+        } catch {
+          // Ignore errors for unread count
         }
 
         // 2) Visitors
@@ -117,7 +133,11 @@ export default function Dashboard() {
           setViewers(viewersResolved);
           setLikedUsers(likedDecor);
           setLikers(likersDecor);
-          setStats((s) => ({ ...s, views: rawVisitors.length, likes: likersDecor.length }));
+          setStats({ 
+            views: rawVisitors.length, 
+            likes: likersDecor.length,
+            messages: unreadCount
+          });
         }
       } catch (e) {
         if (mounted) setErr(e.message || "Failed to load dashboard");

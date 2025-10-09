@@ -251,9 +251,9 @@ def update_profile_picture():
         if requested_file.filename == '':
             return jsonify({"error": "No file selected"}), 400
 
+        # Store only the relative path (without /static/ prefix)
         stored_path = upload_pictures(requested_file, g.user_id)
-        url_path = url_for('static', filename=stored_path)
-        profile.update_profile(g.user_id, {"profile_picture": url_path})
+        profile.update_profile(g.user_id, {"profile_picture": stored_path})
 
         return jsonify({"status": "ok"}), 200
     except Exception as e:
@@ -282,10 +282,10 @@ def upload_images():
         profile = Profile(pool)
         image_urls = []
         for f in files:
-            stored = upload_pictures(f, g.user_id, save_as_profile_pic=False)
-            url_path = url_for('static', filename=stored)
-            profile.insert_images(url_path, g.user_id)
-            image_urls.append(url_path)
+            # Store only the relative path (without /static/ prefix)
+            stored = upload_pictures(f, g.user_id, is_profile_picture=False)
+            profile.insert_images(stored, g.user_id)
+            image_urls.append(stored)
 
         return jsonify({"status": "ok", "image_paths": image_urls}), 200
     except Exception as e:

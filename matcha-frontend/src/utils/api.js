@@ -243,3 +243,101 @@ export async function getAvatar(username) {
   const res = await fetchWithAuth(`${BASE}/api/profile/get_profile_pic/${u}`);
   return res.json(); // { status: "ok", result: "<url or null>" }
 }
+
+/* =========================
+ *  Chat / Messaging APIs
+ * ========================= */
+
+export const chatApi = {
+  // Get all conversations for the current user
+  getConversations: () =>
+    fetchWithAuth(`${BASE}/api/chat/conversations`),
+
+  // Get or create conversation with a specific user (and get messages)
+  getConversation: (username) =>
+    fetchWithAuth(`${BASE}/api/chat/conversation/${encodeURIComponent(username)}`),
+
+  // Send a message to a specific user
+  sendMessageToUser: (username, message) =>
+    fetchWithAuth(`${BASE}/api/chat/conversation/${encodeURIComponent(username)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    }),
+
+  // Send a message to a conversation by ID
+  sendMessage: (conversationId, message) =>
+    fetchWithAuth(`${BASE}/api/chat/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: conversationId, message }),
+    }),
+
+  // Get messages from a conversation
+  getMessages: (conversationId, limit = 100, offset = 0) =>
+    fetchWithAuth(`${BASE}/api/chat/messages/${conversationId}?limit=${limit}&offset=${offset}`),
+
+  // Mark conversation messages as read
+  markAsRead: (conversationId) =>
+    fetchWithAuth(`${BASE}/api/chat/mark_read/${conversationId}`, {
+      method: "POST",
+    }),
+
+  // Get unread message count
+  getUnreadCount: () =>
+    fetchWithAuth(`${BASE}/api/chat/unread_count`),
+};
+
+// Export individual chat functions for convenience
+export async function getConversations() {
+  const res = await chatApi.getConversations();
+  return res.json();
+}
+
+export async function getConversationWith(username) {
+  const res = await chatApi.getConversation(username);
+  return res.json();
+}
+
+export async function sendChatMessage(username, message) {
+  const res = await chatApi.sendMessageToUser(username, message);
+  return res.json();
+}
+
+export async function getUnreadMessageCount() {
+  const res = await chatApi.getUnreadCount();
+  return res.json();
+}
+
+/* =========================
+ *  Notification APIs
+ * ========================= */
+
+export const notificationApi = {
+  // Get notifications (with optional filters)
+  getNotifications: (limit = 50, unreadOnly = false) =>
+    fetchWithAuth(`${BASE}/api/notifications/get_notifications?limit=${limit}&unread_only=${unreadOnly}`),
+
+  // Get unread notification count
+  getUnreadCount: () =>
+    fetchWithAuth(`${BASE}/api/notifications/unread_count`),
+
+  // Mark a specific notification as read
+  markAsRead: (notificationId) =>
+    fetchWithAuth(`${BASE}/api/notifications/mark_read/${notificationId}`, {
+      method: "POST",
+    }),
+
+  // Mark all notifications as read
+  markAllAsRead: () =>
+    fetchWithAuth(`${BASE}/api/notifications/mark_all_read`, {
+      method: "POST",
+    }),
+
+  // Delete a notification
+  deleteNotification: (notificationId) =>
+    fetchWithAuth(`${BASE}/api/notifications/delete/${notificationId}`, {
+      method: "DELETE",
+    }),
+};
+
