@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 class Location(DBManager):
     def __init__(self, connection_pool):
         super().__init__(connection_pool)
+        
+        
+
     def set_user_location(self, user_id, latitude, longitude, city=None, country=None, accuracy=None):
         """Insert or update user location with proper UPSERT handling"""
         location_data = {

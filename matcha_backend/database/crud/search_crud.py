@@ -26,6 +26,7 @@ class Search(DBManager):
     def __init__(self, connection_pool, filter=False):
         super().__init__(connection_pool)
         self.filter = filter
+        self.connection_pool = connection_pool
         
     def search_users(self, criteria, usernames_list=None):
         """Search users based on criteria and return only usernames."""
@@ -45,7 +46,7 @@ class Search(DBManager):
         params = []
         conditions = [
             sql.SQL("u.verified = TRUE"),
-            sql.SQL("u.active = TRUE")
+            # sql.SQL("u.active = TRUE")
         ]
         
         # Handle filter mode with usernames list
@@ -68,8 +69,13 @@ class Search(DBManager):
         
         # Age range condition
         if 'min_age' in age_range and 'max_age' in age_range:
-            conditions.append(sql.SQL("p.age BETWEEN %s AND %s"))
+            # logger.debug(f"✅✅✅✅Age Range: {age_range}")
+            conditions.append(sql.SQL("p.age >= %s AND p.age <= %s"))
+            # logger.debug(f"✅✅✅✅Conditions: {conditions}")
             params.extend([age_range['min_age'], age_range['max_age']])
+        # if 'min_age' in age_range and 'max_age' in age_range:
+        #     conditions.append(sql.SQL("p.age BETWEEN %s AND %s"))
+        #     params.extend([age_range['min_age'], age_range['max_age']])
         
         # Location conditions
         if coordinates and 'latitude' in coordinates and 'longitude' in coordinates:
@@ -117,7 +123,7 @@ class Search(DBManager):
         # Execute the query
         # logger.info(f"Final Query: {final_query.as_string(self.conn)}")
         # logger.info(f"Parameters: {params}")
-        
+        logger.debug(f"Final Query: {final_query}")
         result = self.execute(final_query, tuple(params))
         return [row['username'] for row in result]
     
@@ -127,14 +133,33 @@ class Search(DBManager):
         self.filter = True
         return self.search_users(criteria, usernames_list)
     
-    def sort_users(self, usernames_list, sort_by=None, order='asc', user_id=None, max_distance_km=100):
+    
+    
+    def sort_users(self, request_data, user_id):
         """Sort users based on a specified attribute and return only usernames."""
-        if sort_by not in ['age', 'fame_rating', 'interests', 'location']:
-            raise ValueError("Invalid sort_by value. Must be 'age', 'fame_rating', or 'interests', or 'location'.")
-        if order not in ['asc', 'desc']:
+        # Fix 1: Correct the validation logic (use OR instead of AND)
+        if "sort_by" not in request_data or request_data["sort_by"] not in ['age', 'fame_rating', 'interests', 'location']:
+            raise ValueError("Invalid sort_by value. Must be 'age', 'fame_rating', 'interests', or 'location'.")
+        
+        # Fix 2: Correct the order validation logic
+        if "order" not in request_data or request_data["order"] not in ['asc', 'desc']:
             raise ValueError("Invalid order value. Must be 'asc' or 'desc'.")
         
+        sort_by = request_data["sort_by"]
+        order = request_data["order"]
+        usernames_list = request_data["usernames"]
+        max_distance_km = request_data.get("max_distance_km", 100) if sort_by == "location" else None
         
+        # Fix 3: Handle location sorting separately since it doesn't use SQL query
+        if sort_by == 'location':
+            location_crud = Location(self.connection_pool)
+            sorted_users = location_crud.find_nearby_users(user_id, max_distance_km)
+            return sorted_users
+        
+        # Fix 4: Initialize params variable
+        params = ()
+        
+        # Fix 5: Handle age and fame_rating sorting
         if sort_by == 'age' or sort_by == 'fame_rating':
             placeholders = sql.SQL(',').join([sql.Placeholder()] * len(usernames_list))
             query = sql.SQL("""
@@ -147,24 +172,42 @@ class Search(DBManager):
                 sort_by=sql.Identifier(sort_by),
                 order=sql.SQL(order.upper())
             )
-        if sort_by == 'interests':
+            params = tuple(usernames_list)
+        
+        # Fix 6: Handle interests sorting
+        elif sort_by == 'interests':
+            tags = request_data.get("tags", [])
+            if not tags:
+                raise ValueError("Tags must be provided when sorting by interests.")
+            
             placeholders = sql.SQL(',').join([sql.Placeholder()] * len(usernames_list))
+            tag_placeholders = sql.SQL(',').join([sql.Placeholder()] * len(tags))
+            
             query = sql.SQL("""
-                SELECT u.username, COUNT(t.tag_id) as interest_count FROM users u
+                SELECT 
+                    u.username, 
+                    COUNT(CASE WHEN t.tag_name IN ({search_tags}) THEN 1 ELSE NULL END) as matching_interest_count 
+                FROM users u
                 INNER JOIN user_tags ut ON u.id = ut.user_id
                 INNER JOIN tags t ON ut.tag_id = t.tag_id
                 WHERE u.username IN ({usernames})
                 GROUP BY u.username
-                ORDER BY interest_count {order}
+                ORDER BY matching_interest_count {order}
             """).format(
                 usernames=placeholders,
+                search_tags=tag_placeholders,
                 order=sql.SQL(order.upper())
             )
-        if sort_by == 'location':
-            location_crud = Location(self.connection_pool)
-            sorted_users = location_crud.find_nearby_users(user_id, max_distance_km)
-        else:
-            result = self.execute(query, tuple(usernames_list))
-            sorted_users = [row['username'] for row in result]
+            
+            # Include both usernames AND tags in parameters
+            params = tuple(usernames_list + tags)
+            
+        logger.debug(f"⚠️⚠️query: {query}")
+        
+        # Fix 7: Execute query and return results
+        result = self.execute(query, params)
+        logger.debug(f"⚠️⚠️✅ ❌result: {result}")
+        if not result:
+            return []
+        sorted_users = [row['username'] for row in result]
         return sorted_users
-

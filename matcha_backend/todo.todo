@@ -74,11 +74,18 @@
 }
 
 {
-    "username" : "",
-    "email" : "",
-    "password": "1212",
+    "username" : "test",
+    "email" : "test@test.t",
+    "first_name": "test",
+    "last_name":"test",
+    "password": "1212"
 }
 
-
+{
+    "usernames": ["test1", "test2", "test3", "test4", "test5", "test6"],
+    "sort_by": "interests",
+    "tags": ["web"],
+    "order": "asc"
+}
 
 ⚡ 👉 🔍 ✅ ❌ ⚠️ 👈

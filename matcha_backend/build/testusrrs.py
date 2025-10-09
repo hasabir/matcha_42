@@ -38,12 +38,12 @@ def seed_database():
             cur.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
         
         # Common password hash for all users (password: "Password123!")
-        password_hash = generate_password_hash("1212")
+        password_hash = "$2b$12$yE8S6bP4M3LVNFKOiRKIb.Nb7qzc2vDyo.csWYw0LLGWkR1H5vhcy"
         
         # Sample users data
         users_data = [
             {
-                'username': 'yrahimi',
+                'username': 'test1',
                 'email': 'yassine.rahmi@matcha.com',
                 'first_name': 'Yassine',
                 'last_name': 'Rahimi',
@@ -51,7 +51,7 @@ def seed_database():
                 'active': True
             },
             {
-                'username': 'kmahdi',
+                'username': 'test2',
                 'email': 'khadija.mahdi@matcha.com',
                 'first_name': 'Khadija',
                 'last_name': 'Mahdi',
@@ -59,7 +59,7 @@ def seed_database():
                 'active': True
             },
             {
-                'username': 'abenali',
+                'username': 'test3',
                 'email': 'ahmed.benali@matcha.com',
                 'first_name': 'Ahmed',
                 'last_name': 'Benali',
@@ -67,7 +67,7 @@ def seed_database():
                 'active': True
             },
             {
-                'username': 'selkhalfi',
+                'username': 'test4',
                 'email': 'sara.elkhalfi@matcha.com',
                 'first_name': 'Sara',
                 'last_name': 'El Khalfi',
@@ -75,7 +75,7 @@ def seed_database():
                 'active': False
             },
             {
-                'username': 'mziani',
+                'username': 'test5',
                 'email': 'mehdi.ziani@matcha.com',
                 'first_name': 'Mehdi',
                 'last_name': 'Ziani',
@@ -83,7 +83,7 @@ def seed_database():
                 'active': False
             },
             {
-                'username': 'lamrani',
+                'username': 'test6',
                 'email': 'leila.amrani@matcha.com',
                 'first_name': 'Leila',
                 'last_name': 'Amrani',
