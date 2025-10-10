@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Notification Test</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover { background: #5568d3; }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        input {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            width: 200px;
+            font-size: 16px;
+        }
+        
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-info { background: #cfe2ff; color: #084298; }
+        .log-success { background: #d1e7dd; color: #0f5132; }
+        .log-error { background: #f8d7da; color: #842029; }
+        .log-notification { background: #fff3cd; color: #664d03; }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        .badge {
+            background: #dc3545;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Socket.IO Notification Tester</h1>
+        <p>Test your Flask Socket.IO notification system</p>
+        
+        <div id="status" class="status disconnected">
+            ⚠️ Disconnected
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="serverUrl" placeholder="Server URL" value="http://localhost:5000">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()" disabled id="disconnectBtn">Disconnect</button>
+        </div>
+        
+        <div class="controls">
+            <input type="number" id="userId" placeholder="User ID" value="1">
+            <button onclick="joinRoom()" disabled id="joinBtn">Join Notifications</button>
+            <button onclick="leaveRoom()" disabled id="leaveBtn">Leave Notifications</button>
+            <span id="unreadBadge" style="display:none">
+                Unread: <span class="badge" id="unreadCount">0</span>
+            </span>
+        </div>
+        
+        <div class="controls">
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+        
+        <div class="log-container" id="logs">
+            <div class="log-entry log-info">📝 Logs will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentUserId = null;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const joinBtn = document.getElementById('joinBtn');
+            const leaveBtn = document.getElementById('leaveBtn');
+            
+            if (connected) {
+                status.className = 'status connected';
+                status.textContent = '✅ Connected';
+                disconnectBtn.disabled = false;
+                joinBtn.disabled = false;
+            } else {
+                status.className = 'status disconnected';
+                status.textContent = '⚠️ Disconnected';
+                disconnectBtn.disabled = true;
+                joinBtn.disabled = true;
+                leaveBtn.disabled = true;
+            }
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            
+            log(`Connecting to ${serverUrl}...`, 'info');
+            
+            socket = io(serverUrl, {
+                transports: ['websocket', 'polling'],
+                reconnection: true
+            });
+
+            socket.on('connect', () => {
+                log('✅ Connected successfully!', 'success');
+                updateStatus(true);
+            });
+
+            socket.on('disconnect', () => {
+                log('❌ Disconnected from server', 'error');
+                updateStatus(false);
+            });
+
+            socket.on('connected', (data) => {
+                log(`Server says: ${data.message}`, 'success');
+            });
+
+            socket.on('new_notification', (data) => {
+                log(`🔔 NEW NOTIFICATION: ${JSON.stringify(data)}`, 'notification');
+                playNotificationSound();
+            });
+
+            socket.on('unread_count', (data) => {
+                log(`📊 Unread count: ${data.count}`, 'info');
+                updateUnreadCount(data.count);
+            });
+
+            socket.on('unread_count_updated', (data) => {
+                log(`📊 Unread count updated: ${data.count}`, 'info');
+                updateUnreadCount(data.count);
+            });
+
+            socket.on('notification_seen', (data) => {
+                log(`👁️ Notification marked as seen: ${data.notification_id}`, 'success');
+            });
+
+            socket.on('error', (data) => {
+                log(`❌ Error: ${data.message}`, 'error');
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`, 'error');
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                log('Disconnected by user', 'info');
+                updateStatus(false);
+            }
+        }
+
+        function joinRoom() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+            
+            currentUserId = userId;
+            socket.emit('join_notifications', { user_id: parseInt(userId) });
+            log(`📥 Joining notification room for user ${userId}`, 'info');
+            document.getElementById('leaveBtn').disabled = false;
+        }
+
+        function leaveRoom() {
+            if (!currentUserId) return;
+            
+            socket.emit('leave_notifications', { user_id: parseInt(currentUserId) });
+            log(`📤 Left notification room for user ${currentUserId}`, 'info');
+            currentUserId = null;
+            document.getElementById('leaveBtn').disabled = true;
+            document.getElementById('unreadBadge').style.display = 'none';
+        }
+
+        function updateUnreadCount(count) {
+            const badge = document.getElementById('unreadBadge');
+            const countEl = document.getElementById('unreadCount');
+            countEl.textContent = count;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function playNotificationSound() {
+            // Simple beep using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+    </script>
+</body>
+</html>

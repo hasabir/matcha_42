@@ -1,32 +1,17 @@
-[ ] Profile:
-    [ ] check if user is not blocked before searching profile
-    [ ] return images of the user profile
-    [ ] return image url in the profile
-    [ ] test all the image routes
 
 [] logout
-[] delet user
 
-
-
-[] searching algorithm
-    - age -> min: int, max:int
-    - location -> distance readius : int | city, countety
-    - gender -> Male: string, Female: string
-    - fame_rating -> min: int, max: int
-    - tags
-
-    [] search <- info -> list
-    [] filter_by <- condition, list -> filterd list
-    [] sort_by <- condition, list -> sorted list
-
-
-[] is user online
 
 
 
 
 [] notification
+    [] Create notification function
+    [] Queue notifications for Socket.IO
+    [] Mark notifications as read
+    [] Get unread notifications count
+
+
 [] chat
 
 
@@ -42,13 +27,14 @@
             * locationd
             * A maximum of common tags
             * fame rating
-        
+
         -> sort_by / filter_by
             * age - gender -
             * mutual likes
             * mutual dislikes
 
 
+[] Presence System in Realtime - Online, Offline
 
 
 --------------------------------------------------------------------------------

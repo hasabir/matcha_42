@@ -11,12 +11,15 @@ from database.crud.matching_operations_crud import Matching
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
 from database.crud.interactions_crud import Interactions
+from database.crud.notification_crud import Notification
+
 from utils.validate_profile_data import validate_profile_data
 from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
 from utils.manage_interactions import ManageInteractions
 from utils.image_handler import upload_pictures
 from src.interactions import interactions_bp
+
 
 
 

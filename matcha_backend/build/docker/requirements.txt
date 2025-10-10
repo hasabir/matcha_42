@@ -14,6 +14,11 @@ Flask
 sqlparse
 flask-bcrypt
 Flask-Mail
+Flask-SocketIO
+redis
+python-socketio[client]
+gevent
+# flask-cors
 # tkhrbiqa
 
 # psycopg2-binary==2.9.9

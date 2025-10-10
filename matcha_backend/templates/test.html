@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="status">Disconnected</div>
+    <button onclick="connect()">Connect</button>
+    <div id="messages"></div>
+
+    <script>
+        let socket = null;
+        
+        function connect() {
+            // This will trigger your @socketio.on('connect') handler
+            socket = io('http://localhost:5000', {
+                query: {
+                    user_id: 123  // Add this to see it in your handler
+                }
+            });
+            
+            socket.on('connect', () => {
+                document.getElementById('status').textContent = 'Connected';
+                console.log('✅ Client: Socket.IO connected');
+            });
+            
+            socket.on('connected', (data) => {
+                console.log('✅ Server confirmed:', data);
+                document.getElementById('messages').innerHTML += 
+                    `<p>Server: ${JSON.stringify(data)}</p>`;
+            });
+            
+            socket.on('disconnect', () => {
+                document.getElementById('status').textContent = 'Disconnected';
+                console.log('❌ Disconnected');
+            });
+        }
+    </script>
+</body>
+</html>
