@@ -22,7 +22,7 @@ def get_notifications():
             return jsonify({'success': False, 'error': 'Invalid JSON body'}), 400
         if any(key not in request_data for key in ['limit', 'offset', 'unread_only']):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
-        receiver_id = g.user_id 
+        user_id = g.user_id 
         limit = int(request_data.get('limit', 20))
         offset = int(request_data.get('offset', 0))
         unread_only = request_data.get('unread_only') == True
@@ -31,7 +31,7 @@ def get_notifications():
         notification_service = NotificationService(connection_pool)
         
         notifications = notification_service.get_user_notifications(
-            receiver_id, 
+            user_id, 
             limit, 
             offset, 
             unread_only
@@ -53,11 +53,11 @@ def get_unread_count():
     """Get count of unread notifications"""
     try:
         # user_id = g.user_id
-        receiver_id = g.user_id
+        user_id = 1
         connection_pool = current_app.config["CONNECTION_POOL"]
         notification_service = NotificationService(connection_pool)
         
-        count = notification_service.get_unread_count(receiver_id)
+        count = notification_service.get_unread_count(user_id)
         
         return jsonify({
             'success': True,
@@ -73,19 +73,19 @@ def get_unread_count():
 def mark_notification_seen(notification_id):
     """Mark a specific notification as seen"""
     try:
-        receiver_id = g.user_id
+        user_id = g.user_id
         
         connection_pool = current_app.config["CONNECTION_POOL"]
         notification_service = NotificationService(connection_pool)
         #only mark as seen if belongs to user
-        if not notification_service.does_notification_exist(notification_id, receiver_id):
+        if not notification_service.does_notification_exist(notification_id, user_id):
             return jsonify({
                 'success': False,
                 'error': 'Notification not found or access denied'
             }), 404
         result = notification_service.mark_notification_seen(
             notification_id=notification_id,
-            receiver_id=receiver_id 
+            user_id=user_id 
         )
         
         if result:
@@ -132,13 +132,13 @@ def mark_notification_seen(notification_id):
 def delete_notification(notification_id):
     """Delete a specific notification"""
     try:
-        receiver_id = g.user_id
+        user_id = g.user_id
         
         connection_pool = current_app.config["CONNECTION_POOL"]
         notification_crud = Notification(connection_pool)
         
         # Verify ownership before deletion
-        notifications = notification_crud.get_user_notifications(receiver_id, limit=1)
+        notifications = notification_crud.get_user_notifications(user_id, limit=1)
         user_notification_ids = [n['notification_id'] for n in notifications]
         
         if notification_id not in user_notification_ids:
@@ -147,7 +147,7 @@ def delete_notification(notification_id):
                 'error': 'Notification not found or access denied'
             }), 404
         
-        result = notification_crud.delete_notification(notification_id, receiver_id)
+        result = notification_crud.delete_notification(notification_id, user_id)
         
         if result:
             return jsonify({
@@ -181,13 +181,16 @@ def chat_home():
     # return render_template('notif_test.html')
 
 
+
+# @auth_guard
+
 @notifications_bp.route('/test', methods=['POST'])
 @auth_guard
 def test_notification():
     """Create a test notification (for development only)"""
     # try:
-    receiver_id = request.json.get('receiver_id')
-    sender_id = g.user_id
+    user_id = request.json.get('user_id', 1)
+    cender_id = g.user_id
     notification_type = request.json.get('type', 'test')
     # reference_id = request.json.get('reference_id', None)
     
@@ -195,9 +198,10 @@ def test_notification():
     notification_service = NotificationService(connection_pool)
     
     notification = notification_service.create_notification(
-        sender_id=sender_id,
+        user_id=user_id,
         notification_type=notification_type,
-        receiver_id=receiver_id)
+        reference_id=cender_id
+    )
     from utils.socket_manager import SocketManager
     
     if notification:
@@ -211,7 +215,7 @@ def test_notification():
             'success': False,
             'error': 'Failed to create test notification'
         }), 500
-        
+            
     # except Exception as e:
     #     logging.error(f"Error creating test notification: {e}")
     #     return jsonify({'success': False, 'error': 'Internal server error'}), 500

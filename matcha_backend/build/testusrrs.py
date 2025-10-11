@@ -239,8 +239,10 @@ def seed_database():
             (user_ids[3], 'visit', user_ids[2], False),
             (user_ids[5], 'message', user_ids[0], False)
         ]
+            # INSERT INTO notifications (sender_id, type, receiver_id , seen, received_at)
+        
         execute_values(cur, """
-            INSERT INTO notifications (sender_id, type, receiver_id , seen, received_at)
+            INSERT INTO notifications (user_id, type, reference_id, seen, received_at)
             VALUES %s
         """, [(n[0], n[1], n[2], n[3], datetime.now() - timedelta(hours=random.randint(1, 12))) 
               for n in notifications_data])

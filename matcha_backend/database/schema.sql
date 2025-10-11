@@ -127,9 +127,9 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    sender_id INT REFERENCES users(id) ON DELETE CASCADE,  
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,  
     type TEXT NOT NULL,
-    receiver_id INT REFERENCES users(id) ON DELETE CASCADE, -- Changed from UUID to INT for consistency
+    reference_id INT,  -- Changed from UUID to INT for consistency
     seen BOOLEAN DEFAULT FALSE,
     received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
