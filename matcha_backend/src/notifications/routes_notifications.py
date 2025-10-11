@@ -20,12 +20,13 @@ def get_notifications():
         request_data = request.get_json()
         if request_data is None:
             return jsonify({'success': False, 'error': 'Invalid JSON body'}), 400
-        if any(key not in request_data for key in ['limit', 'offset', 'unread_only']):
+        if any(key not in request_data for key in ['limit', 'offset', 'seen']):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
         user_id = g.user_id 
         limit = int(request_data.get('limit', 20))
         offset = int(request_data.get('offset', 0))
-        unread_only = request_data.get('unread_only') == True
+        seen = request_data.get('seen', False)
+        # seen = request_data.get('seen') == True
         
         connection_pool = current_app.config["CONNECTION_POOL"]
         notification_service = NotificationService(connection_pool)
@@ -34,7 +35,7 @@ def get_notifications():
             user_id, 
             limit, 
             offset, 
-            unread_only
+            seen
         )
         
         return jsonify({
@@ -101,7 +102,7 @@ def mark_notification_seen(notification_id):
             
     except Exception as e:
         logging.error(f"Error marking notification as seen: {e}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+        return jsonify({'success': False, 'error': {e}}), 500
 
 # @notifications_bp.route('/mark_all_seen', methods=['PUT'])
 # @auth_guard

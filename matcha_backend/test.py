@@ -20,7 +20,7 @@ WS_URL = "http://localhost:5000"    # Update with your WebSocket URL
 USERS = {
     "test1": {
         "user_id": 1,
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3NjAyMjI2MjEsInR5cGUiOiJhY2Nlc3MifQ.h_tKNggWo0Zukbm2E6GbIrWEqzMzy3AyroL5TUUQSFQ"
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3NjAyMjYyODMsInR5cGUiOiJhY2Nlc3MifQ.DQNWz05v49QeeulbuXeiDuYwtl_xf-EP-9qFSX0LzFg"
     },
     "test2": {
         "user_id": 2,

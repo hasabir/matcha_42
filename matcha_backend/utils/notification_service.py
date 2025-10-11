@@ -82,23 +82,24 @@ class NotificationService:
             notification_crud = Notification(self.connection_pool)
             result = notification_crud.mark_as_seen(notification_id, user_id)
             
-            if result:
+            # if result:
                 # Invalidate cache so next request gets fresh count
-                redis_manager.delete_cached_unread_count(user_id)
-                print(f"✅ Notification {notification_id} marked as seen for user {user_id}")
+            redis_manager.delete_cached_unread_count(user_id)
+            print(f"✅ Notification {notification_id} marked as seen for user {user_id}")
             
-            return result
+            # return result
             
         except Exception as e:
             print(f"❌ Error marking notification as seen: {e}")
             return False
     
-    def get_user_notifications(self, user_id, limit=20, offset=0, unread_only=False):
+    def get_user_notifications(self, user_id, limit=20, offset=0, seen=False):
         """Get notifications for a user"""
         try:
             notification_crud = Notification(self.connection_pool)
-            
-            if unread_only:
+            logger = logging.getLogger(__name__)
+            logger.debug(f"seen 👉👉👉👉 {seen}")
+            if seen == False:
                 # You'll need to implement this in CRUD
                 notifications = notification_crud.get_unseen_user_notifications(
                     user_id=user_id,
