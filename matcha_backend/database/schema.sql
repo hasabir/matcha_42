@@ -11,17 +11,17 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     verification_token TEXT, 
     verified BOOLEAN DEFAULT FALSE, 
-    reset_token TEXT, --! need to remove this
     reset_password_token TEXT,
     active BOOLEAN DEFAULT FALSE,
-    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    first_login BOOLEAN DEFAULT TRUE
 );
 
 
 -- User Locations Table
 CREATE TABLE IF NOT EXISTS user_locations (
     location_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
     longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
     city VARCHAR(100),
@@ -78,9 +78,9 @@ CREATE TABLE IF NOT EXISTS likes (
 -- Connections Table
 CREATE TABLE IF NOT EXISTS connections (
     user1_id INT REFERENCES users(id) ON DELETE CASCADE,  
-    user2_id INT REFERENCES users(id) ON DELETE CASCADE,  --!needs to be changed to other_user
+    other_user_id INT REFERENCES users(id) ON DELETE CASCADE,
     connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user1_id, user2_id)
+    PRIMARY KEY (user1_id, other_user_id)
 );
 
 -- Visits Table
@@ -103,7 +103,6 @@ CREATE TABLE IF NOT EXISTS reports (
     reporter_id INT REFERENCES users(id) ON DELETE CASCADE,  
     reported_id INT REFERENCES users(id) ON DELETE CASCADE,  
     reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- ! i don't wnat to do :( reason TEXT,
     PRIMARY KEY (reporter_id, reported_id)
 );
 -- Conversations Table

@@ -178,3 +178,52 @@ class Profile(DBManager):
             self.update('profiles', {"fame_rating": new_rating}, where="user_id = %s", where_params=(user_id,))
         except Exception as e:
             raise Exception(e)
+    
+    def is_profile_completed(self, user_id):
+        """Check if user has completed essential profile information"""
+        try:
+            # Check if profile exists and has essential fields
+            profile = self.get_profile_by_user_id(user_id)
+            if not profile:
+                return False
+            
+            # Essential fields for a complete profile
+            essential_fields = ['bio', 'age', 'gender', 'sexual_preferences']
+            has_essentials = all(profile.get(field) is not None and 
+                               str(profile.get(field)).strip() != '' 
+                               for field in essential_fields)
+            
+            # Check if user has at least one image
+            images = self.get_images(user_id)
+            has_images = len(images) > 0
+            
+            return has_essentials and has_images
+        except Exception as e:
+            raise Exception(e)
+    
+    def get_profile_completion_status(self, user_id):
+        """Get detailed profile completion status"""
+        try:
+            profile = self.get_profile_by_user_id(user_id)
+            images = self.get_images(user_id)
+            interests = self.get_user_interests(user_id)
+            
+            # Check essential fields
+            has_essentials = False
+            if profile:
+                essential_fields = ['bio', 'age', 'gender', 'sexual_preferences']
+                has_essentials = all(profile.get(field) is not None and 
+                                   str(profile.get(field)).strip() != '' 
+                                   for field in essential_fields)
+            
+            return {
+                'profile_exists': profile is not None,
+                'has_essentials': has_essentials,
+                'has_images': len(images) > 0,
+                'has_interests': len(interests) > 0,
+                'is_completed': has_essentials and len(images) > 0,
+                'image_count': len(images),
+                'interest_count': len(interests)
+            }
+        except Exception as e:
+            raise Exception(e)

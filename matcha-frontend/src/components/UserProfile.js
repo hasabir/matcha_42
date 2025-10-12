@@ -7,6 +7,26 @@ import "./user-profile.css";
 const FALLBACK_AVATAR =
   "https://static-00.iconduck.com/assets.00/user-avatar-1024x1024-2xhpdo1n.png";
 
+const API_BASE = "http://localhost:5000";
+
+/**
+ * Convert relative image paths to absolute URLs
+ * Handles both /static/profiles/... and /profiles/... (for backward compatibility)
+ */
+function toAbsoluteUrl(url) {
+  if (!url) return FALLBACK_AVATAR;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  let cleanUrl = url.replace(/^\/+/, "");
+  
+  // If the URL doesn't start with 'static/' but starts with 'profiles/', add 'static/' prefix
+  if (cleanUrl.startsWith("profiles/") && !cleanUrl.startsWith("static/")) {
+    cleanUrl = `static/${cleanUrl}`;
+  }
+  
+  return `${API_BASE}/${cleanUrl}`;
+}
+
 export default function UserProfile() {
   const { username: routeUsername } = useParams();
   const navigate = useNavigate();
@@ -35,13 +55,18 @@ export default function UserProfile() {
         let picUrl = FALLBACK_AVATAR;
         if (picRes && picRes.ok) {
           const pj = await picRes.json().catch(() => ({}));
-          if (pj?.result) picUrl = pj.result;
+          if (pj?.result) {
+            picUrl = toAbsoluteUrl(pj.result);
+          }
         }
         const imgsRes = await api.userImages(username).catch(() => null);
         let gallery = [];
         if (imgsRes && imgsRes.ok) {
           const ij = await imgsRes.json().catch(() => ({}));
-          if (Array.isArray(ij?.result)) gallery = ij.result;
+          if (Array.isArray(ij?.result)) {
+            // Convert relative paths to absolute URLs
+            gallery = ij.result.map(url => toAbsoluteUrl(url));
+          }
         }
         const matchRes = await api.isMatched(username);
         const matchJson = await matchRes.json().catch(() => ({}));
@@ -151,75 +176,117 @@ export default function UserProfile() {
 
   return (
     <div className="user-wrap">
+      {/* Hero Header with Gradient */}
       <header className="user-header">
-        <img className="user-avatar" src={avatar || FALLBACK_AVATAR} alt={fullName} />
-        <div className="user-title">
-          <h1>{fullName}</h1>
-          <p className="dim">
-            Fame rating: <strong>{Number(fame_rating || 0)}</strong>
-            {active === true && <span className="online-dot" title="Online" />}
-            {active === false && last_seen && (
-              <span className="last-seen"> — last seen {new Date(last_seen).toLocaleString()}</span>
-            )}
-          </p>
-          {age && <p className="dim">Age: {age}</p>}
-          {gender && <p className="dim">Gender: {gender}</p>}
-          {sexual_preferences && <p className="dim">Interested in: {sexual_preferences}</p>}
-          {location && <p className="dim">Location: {location}</p>}
+        <div className="header-gradient"></div>
+        <div className="header-content">
+          <div className="avatar-wrapper">
+            <img className="user-avatar" src={avatar || FALLBACK_AVATAR} alt={fullName} />
+            {active === true && <span className="online-badge">Online</span>}
+          </div>
+          <div className="user-info">
+            <h1 className="user-name">{fullName}</h1>
+            <div className="user-meta">
+              {age && <span className="meta-item">🎂 {age} years old</span>}
+              {gender && <span className="meta-item">👤 {gender}</span>}
+              {location && <span className="meta-item">📍 {location}</span>}
+            </div>
+            <div className="fame-badge">
+              <span className="fame-icon">⭐</span>
+              <span className="fame-value">{Number(fame_rating || 0)}</span>
+              <span className="fame-label">Fame Rating</span>
+            </div>
+          </div>
         </div>
       </header>
 
-      {bio && (
-        <section className="user-section">
-          <h3>About</h3>
-          <p>{bio}</p>
+      <div className="user-content">
+        {/* Info Card */}
+        <div className="info-card">
+          {sexual_preferences && (
+            <div className="info-row">
+              <span className="info-label">💕 Interested in</span>
+              <span className="info-value">{sexual_preferences}</span>
+            </div>
+          )}
+          {active === false && last_seen && (
+            <div className="info-row">
+              <span className="info-label">🕐 Last seen</span>
+              <span className="info-value">{new Date(last_seen).toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Bio Section */}
+        {bio && (
+          <section className="user-section">
+            <h3 className="section-title">About Me</h3>
+            <p className="bio-text">{bio}</p>
+          </section>
+        )}
+
+        {/* Interests Section */}
+        {Array.isArray(tags) && tags.length > 0 && (
+          <section className="user-section">
+            <h3 className="section-title">Interests</h3>
+            <div className="chip-row">
+              {tags.map((t, i) => (
+                <span className="interest-chip" key={`${t}-${i}`}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Photos Gallery */}
+        {images && images.length > 0 && (
+          <section className="user-section">
+            <h3 className="section-title">Photos ({images.length})</h3>
+            <div className="photo-gallery">
+              {images.map((src, i) => (
+                <div key={i} className="gallery-item">
+                  <img src={src} alt={`Photo ${i + 1}`} className="gallery-img" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Action Buttons */}
+        <section className="user-actions">
+          <button disabled={busy} className="action-btn primary" onClick={onLikeToggle}>
+            <span className="btn-icon">{matched ? "💔" : "💖"}</span>
+            {matched ? "Unlike" : "Like"}
+          </button>
+
+          {matched && (
+            <button
+              disabled={busy}
+              className="action-btn success"
+              onClick={() => navigate(`/messages?with=${encodeURIComponent(username)}`)}
+            >
+              <span className="btn-icon">💬</span>
+              Send Message
+            </button>
+          )}
+
+          <button disabled={busy} className="action-btn secondary" onClick={onUnblock}>
+            <span className="btn-icon">🔓</span>
+            Unblock
+          </button>
+
+          <button disabled={busy} className="action-btn warning" onClick={onBlock}>
+            <span className="btn-icon">🚫</span>
+            Block
+          </button>
+
+          <button disabled={busy} className="action-btn danger" onClick={onReport}>
+            <span className="btn-icon">🚩</span>
+            Report
+          </button>
         </section>
-      )}
-
-      {Array.isArray(tags) && tags.length > 0 && (
-        <section className="user-section">
-          <h3>Interests</h3>
-          <div className="chip-row">
-            {tags.map((t, i) => (
-              <span className="chip" key={`${t}-${i}`}>#{t}</span>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {images && images.length > 0 && (
-        <section className="user-section">
-          <h3>Photos</h3>
-          <div className="gallery">
-            {images.map((src, i) => (
-              <img key={i} src={src} alt={`img-${i}`} className="gallery-img" />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Actions */}
-      <section className="user-actions">
-        <button disabled={busy} className="pill-btn primary" onClick={onLikeToggle}>
-          {matched ? "Unlike" : "Like"}
-        </button>
-
-        <button disabled={busy} className="pill-btn" onClick={() => navigate(`/messages?with=${encodeURIComponent(username)}`)} hidden={!matched}>
-          Chat
-        </button>
-
-        <button disabled={busy} className="pill-btn warn" onClick={onBlock}>
-          Block
-        </button>
-
-        <button disabled={busy} className="pill-btn" onClick={onUnblock}>
-          Unblock
-        </button>
-
-        <button disabled={busy} className="pill-btn danger" onClick={onReport}>
-          Report
-        </button>
-      </section>
+      </div>
     </div>
   );
 }

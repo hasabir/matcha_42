@@ -196,7 +196,6 @@ from utils.image_handler import upload_pictures
 from database.crud.user_crud import User
 from database.crud.profile_crud import Profile
 from database.crud.interactions_crud import Interactions
-from database.crud.notification_crud import Notification
 from utils.profile_utils import get_profile_data, houres_between_dates
 
 logger = logging.getLogger(__name__)
@@ -229,10 +228,10 @@ def create_profile():
             return jsonify({"error": "Validation failed", "details": validation_errors}), 400
 
         requested_file = request.files.get('profile_pic')
-        stored_path = None
+        url_path = None
         if requested_file:
-            # Store only the relative path (without /static/ prefix)
             stored_path = upload_pictures(requested_file, g.user_id)
+            url_path = url_for('static', filename=stored_path)
 
         profile_data = {
             "bio": form.get("bio"),
@@ -242,7 +241,7 @@ def create_profile():
             "user_id": g.user_id,
             # ⬇️ Initialize directly instead of calculate_fame_rating()
             "fame_rating": 5,
-            "profile_picture": stored_path
+            "profile_picture": url_path
         }
 
         profile_crud.create_profile(profile_data)
@@ -262,7 +261,6 @@ def update_profile():
     Update profile for logged-in user.
     Body (JSON): any subset of profile fields and/or user fields.
     user_fields = ["first_name", "last_name"]
-    If profile doesn't exist, create it first.
     """
     try:
         data = request.get_json(force=True) or {}
@@ -274,32 +272,20 @@ def update_profile():
         profile_crud = Profile(pool)
         user_crud = User(pool)
 
-        # Check if profile exists, if not create it
-        existing_profile = profile_crud.get_profile_by_user_id(g.user_id)
-        
-        user_fields = ["first_name", "last_name", "email"]
+        user_fields = ["first_name", "last_name"]
         user_data = {k: v for k, v in data.items() if k in user_fields}
         profile_data = {k: v for k, v in data.items() if k not in user_fields}
 
-        # If profile doesn't exist and we have profile data, create it
-        if not existing_profile and profile_data:
-            profile_data["user_id"] = g.user_id
-            profile_data["fame_rating"] = 5  # Default fame rating
-            profile_crud.create_profile(profile_data)
-        elif profile_data:
-            # Update existing profile
+        # Update the correct parts
+        if profile_data:
             profile_crud.update_profile(g.user_id, profile_data)
-        
-        # Update user fields (first_name, last_name, email)
         if user_data:
             user_crud.update_user(user_data, username=None, user_id=g.user_id)
 
-        return jsonify({"status": "ok", "message": "Profile updated successfully"}), 200
+        return jsonify({"status": "ok"}), 201
     except Exception as e:
         logger.exception("update_profile failed")
-        logger.error(f"Error details: {str(e)}")
-        logger.error(f"Data received: {data if 'data' in locals() else 'No data'}")
-        return jsonify({"error": str(e), "details": "Failed to update profile"}), 409
+        return jsonify({"error": str(e)}), 409
 
 
 @profile_bp.route("/get_profile/<username>", methods=["GET"])
@@ -348,16 +334,6 @@ def get_profile(username):
             else:
                 profile_crud.update_profile_vist_timestamp(g.user_id, user_data["id"])
                 profile_crud.update_fame_rating(user_data["id"], new_rating)
-            
-            # Create visit notification
-            notification_crud = Notification(pool)
-            my_user = user_crud.get_user_by('id', g.user_id, 'username')
-            notification_crud.create_notification(
-                user_id=user_data["id"],
-                type='visit',
-                from_user_id=g.user_id,
-                message=f"{my_user} viewed your profile"
-            )
 
         return jsonify({"result": profile_data, "hours_passed": hours_passed}), 200
 

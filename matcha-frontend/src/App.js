@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // Protected wrapper (keep yours)
@@ -14,16 +14,42 @@ import AccountSettingsPage from "./components/AccountSettingsPage";
 import VerifyEmailPage from "./components/VerifyEmailPage";
 import LandingPage from "./components/landingpage";
 import Dashboard from "./components/dashboard";
-import Chat from "./components/Chat";
-import UserProfile from "./components/UserProfile";
-import NotificationsPage from "./components/NotificationsPage";
 
 // Password reset flow
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ressetpassword";
 import ConfirmReset from "./components/ConfirmReset";
 
+// Auth validation
+import { validateToken } from "./utils/authCheck";
+
 function App() {
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Validate token on app startup
+  useEffect(() => {
+    const checkAuth = async () => {
+      await validateToken();
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
+
+  // Show nothing until we've checked auth status
+  if (!authChecked) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        background: "linear-gradient(135deg, #fce7f3 0%, #f3e7fc 50%, #e7f0fc 100%)"
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <NavBar />
@@ -44,9 +70,6 @@ function App() {
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/settings" element={<AccountSettingsPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/messages" element={<Chat />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/u/:username" element={<UserProfile />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -14,8 +14,8 @@ from flask_mail import Mail
 import jwt
 from src.search import search_bp
 from src.interactions import interactions_bp
-from src.chat import chat_bp
-from src.notification import notification_bp
+# from src.chat import chat_bp
+# from src.notification import notifications_bp
 from docs import docs_bp
 
 
@@ -33,7 +33,10 @@ if __name__ == '__main__':
     
     CORS(app,
          supports_credentials=True,
-         resources={r"/api/*": {"origins": ["http://localhost:3000"]}},
+         resources={
+             r"/api/*": {"origins": ["http://localhost:3000"]},
+             r"/static/*": {"origins": ["http://localhost:3000"]}
+         },
          allow_headers=["Content-Type", "Authorization"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     
@@ -52,7 +55,7 @@ if __name__ == '__main__':
     app.register_blueprint(profile_bp, url_prefix='/api/profile')
     app.register_blueprint(search_bp, url_prefix='/api/search')
     app.register_blueprint(interactions_bp, url_prefix='/api/interactions')
-    app.register_blueprint(chat_bp)
-    app.register_blueprint(notification_bp, url_prefix='/api/notifications')
+    # app.register_blueprint(messaging_bp, url_prefix='/api/chat')
+    # app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
     app.run(host='0.0.0.0', port=5000, debug=True)

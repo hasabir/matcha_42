@@ -1,260 +1,361 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { api, chatApi } from "../utils/api";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, BASE } from "../utils/api";
 import "./dashboard.css";
 
 const FALLBACK_AVATAR =
   "https://static-00.iconduck.com/assets.00/user-avatar-1024x1024-2xhpdo1n.png";
 
+const API_BASE = process.env.REACT_APP_API_BASE || BASE;
+
+/**
+ * Ensure we use an absolute URL for images no matter what backend returns.
+ * If API already sends absolute URLs (recommended), this is a no-op.
+ * Handles both /static/profiles/... and /profiles/... (for backward compatibility)
+ */
+function toAbsoluteUrl(url) {
+  if (!url) return FALLBACK_AVATAR;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // Construct absolute URL from relative path
+  try {
+    let cleanUrl = url.replace(/^\/+/, ""); // Remove leading slashes
+    
+    // If the URL doesn't start with 'static/' but starts with 'profiles/', add 'static/' prefix
+    if (cleanUrl.startsWith("profiles/") && !cleanUrl.startsWith("static/")) {
+      cleanUrl = `static/${cleanUrl}`;
+    }
+    
+    return `${API_BASE.replace(/\/+$/, "")}/${cleanUrl}`;
+  } catch {
+    return url.startsWith("/") ? `${API_BASE}${url}` : `${API_BASE}/${url}`;
+  }
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [me, setMe] = useState({
-    username: "",
-    first_name: "",
-    last_name: "",
-    fame_rating: 0,
-    profile_picture: null,
-    online: null,
-    last_seen: null,
-  });
+  const [user, setUser] = useState(null);
+  const [profilePic, setProfilePic] = useState(FALLBACK_AVATAR);
   const [stats, setStats] = useState({ likes: 0, messages: 0, views: 0 });
-  const [viewers, setViewers] = useState([]);         // [{ username, avatar }]
-  const [likedUsers, setLikedUsers] = useState([]);   // [{ username, matched, avatar }]
-  const [likers, setLikers] = useState([]);           // [{ username, matched, avatar }]
+  const [viewers, setViewers] = useState([]);
+  const [likedUsers, setLikedUsers] = useState([]);
+  const [likers, setLikers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
+  const [error, setError] = useState(null);
 
-  const displayName = useMemo(() => {
-    const firstName = me.first_name?.trim();
-    const lastName = me.last_name?.trim();
-    
-    if (firstName || lastName) {
-      return `${firstName || ""} ${lastName || ""}`.trim();
-    }
-    return me.username?.trim() || "there";
-  }, [me]);
+  // Stable onError handler that won’t loop forever
+  const onImgError = useMemo(
+    () => (e) => {
+      if (e?.target?.src !== FALLBACK_AVATAR) {
+        e.target.src = FALLBACK_AVATAR;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     let mounted = true;
+    const ctrl = new AbortController();
 
-    async function load() {
+    async function loadDashboard() {
       try {
         setLoading(true);
-        setErr(null);
+        setError(null);
 
-        // 1) Me
-        const meRes = await api.meProfile();
-        const meJson = await meRes.json();
-        if (!meRes.ok) throw new Error(meJson?.error || "Failed to load profile");
-        
-        const r = meJson.result || {};
-        const hydrated = {
-          username: r.username || "",
-          first_name: r.first_name || "",
-          last_name: r.last_name || "",
-          fame_rating: Number(r.fame_rating || 0),
-          profile_picture: r.profile_picture || null,
-          online: typeof r.active === "boolean" ? r.active : null,
-          last_seen: r.last_seen || null,
-        };
+        // 1) Load current user profile
+        const meRes = await api.meProfile({ signal: ctrl.signal });
+        const meData = await meRes.json();
 
-        if (!hydrated.profile_picture) {
-          try {
-            const picRes = await api.myProfilePic();
-            const picJson = await picRes.json();
-            if (picRes.ok && picJson?.result) hydrated.profile_picture = picJson.result;
-          } catch {}
+        if (!meRes.ok) {
+          throw new Error(meData?.error || "Failed to load profile");
         }
 
-        // Get unread message count
-        let unreadCount = 0;
+        const userData = meData.result || {};
+        if (!mounted) return;
+        setUser(userData);
+
+        // 2) Load profile picture (always absolute from backend; helper still guards)
         try {
-          const unreadRes = await chatApi.getUnreadCount();
-          const unreadJson = await unreadRes.json();
-          if (unreadRes.ok && unreadJson?.unread_count !== undefined) {
-            unreadCount = unreadJson.unread_count;
+          const picRes = await api.myProfilePic({ signal: ctrl.signal });
+          const picData = await picRes.json();
+
+          if (!mounted) return;
+          if (picRes.ok) {
+            const url = toAbsoluteUrl(picData?.result);
+            setProfilePic(url || FALLBACK_AVATAR);
           }
-        } catch {
-          // Ignore errors for unread count
+        } catch (err) {
+          console.error("Failed to load profile picture:", err);
         }
 
-        // 2) Visitors
-        const visRes = await api.myVisitors();
-        const visJson = await visRes.json();
-        if (!visRes.ok) throw new Error(visJson?.error || "Failed to load visitors");
-        const rawVisitors = Array.isArray(visJson.result) ? visJson.result : [];
-        const viewersResolved = await Promise.all(
-          rawVisitors.map(async (row) => {
-            const username = row?.username;
-            if (!username) return { username: "", avatar: FALLBACK_AVATAR };
-            try {
-              const p = await api.userProfilePic(username);
-              const j = await p.json();
-              return { username, avatar: p.ok && j?.result ? j.result : FALLBACK_AVATAR };
-            } catch {
-              return { username, avatar: FALLBACK_AVATAR };
-            }
-          })
-        );
+        // 3) Load visitors
+        try {
+          const visRes = await api.myVisitors({ signal: ctrl.signal });
+          const visData = await visRes.json();
 
-        // 3) Liked / Likers + match flags + avatars
-        const [likedRes, likersRes] = await Promise.all([api.getUsers("liked"), api.getUsers("likers")]);
-        const likedJson = await likedRes.json();
-        const likersJson = await likersRes.json();
-
-        if (!likedRes.ok) throw new Error(likedJson?.error || "Failed to load liked");
-        if (!likersRes.ok) throw new Error(likersJson?.error || "Failed to load likers");
-
-        const likedList = Array.isArray(likedJson.result) ? likedJson.result : [];
-        const likersList = Array.isArray(likersJson.result) ? likersJson.result : [];
-
-        const decorate = async (username) => {
-          try {
-            const [mRes, picRes] = await Promise.all([api.isMatched(username), api.userProfilePic(username)]);
-            const mJson = await mRes.json().catch(() => ({}));
-            const pJson = await picRes.json().catch(() => ({}));
-            const matched = !!(mRes.ok && mJson?.result === true);
-            const avatar = picRes.ok && pJson?.result ? pJson.result : FALLBACK_AVATAR;
-            return { username, matched, avatar };
-          } catch {
-            return { username, matched: false, avatar: FALLBACK_AVATAR };
+          if (visRes.ok && Array.isArray(visData.result)) {
+            const viewersWithPics = await Promise.all(
+              visData.result.map(async (visitor) => {
+                try {
+                  const picRes = await api.userProfilePic(visitor.username, {
+                    signal: ctrl.signal,
+                  });
+                  const picData = await picRes.json();
+                  const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+                  return {
+                    ...visitor,
+                    avatar: picUrl || FALLBACK_AVATAR,
+                  };
+                } catch {
+                  return { ...visitor, avatar: FALLBACK_AVATAR };
+                }
+              })
+            );
+            if (!mounted) return;
+            setViewers(viewersWithPics);
+            setStats((prev) => ({ ...prev, views: viewersWithPics.length }));
           }
-        };
+        } catch (err) {
+          console.error("Failed to load visitors:", err);
+        }
 
-        const [likedDecor, likersDecor] = await Promise.all([
-          Promise.all(likedList.map(decorate)),
-          Promise.all(likersList.map(decorate)),
-        ]);
+        // 4) Load liked users
+        try {
+          const likedRes = await api.getUsers("liked", { signal: ctrl.signal });
+          const likedData = await likedRes.json();
 
+          if (likedRes.ok && Array.isArray(likedData.result)) {
+            const likedWithDetails = await Promise.all(
+              likedData.result.map(async (username) => {
+                try {
+                  const [matchRes, picRes] = await Promise.all([
+                    api.isMatched(username, { signal: ctrl.signal }),
+                    api.userProfilePic(username, { signal: ctrl.signal }),
+                  ]);
+                  const matchData = await matchRes.json();
+                  const picData = await picRes.json();
+                  const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+
+                  return {
+                    username,
+                    matched: matchRes.ok && matchData?.result === true,
+                    avatar: picUrl || FALLBACK_AVATAR,
+                  };
+                } catch {
+                  return { username, matched: false, avatar: FALLBACK_AVATAR };
+                }
+              })
+            );
+            if (!mounted) return;
+            setLikedUsers(likedWithDetails);
+          }
+        } catch (err) {
+          console.error("Failed to load liked users:", err);
+        }
+
+        // 5) Load likers
+        try {
+          const likersRes = await api.getUsers("likers", { signal: ctrl.signal });
+          const likersData = await likersRes.json();
+
+          if (likersRes.ok && Array.isArray(likersData.result)) {
+            const likersWithDetails = await Promise.all(
+              likersData.result.map(async (username) => {
+                try {
+                  const [matchRes, picRes] = await Promise.all([
+                    api.isMatched(username, { signal: ctrl.signal }),
+                    api.userProfilePic(username, { signal: ctrl.signal }),
+                  ]);
+                  const matchData = await matchRes.json();
+                  const picData = await picRes.json();
+                  const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+
+                  return {
+                    username,
+                    matched: matchRes.ok && matchData?.result === true,
+                    avatar: picUrl || FALLBACK_AVATAR,
+                  };
+                } catch {
+                  return { username, matched: false, avatar: FALLBACK_AVATAR };
+                }
+              })
+            );
+            if (!mounted) return;
+            setLikers(likersWithDetails);
+            setStats((prev) => ({ ...prev, likes: likersWithDetails.length }));
+          }
+        } catch (err) {
+          console.error("Failed to load likers:", err);
+        }
+      } catch (err) {
         if (mounted) {
-          setMe(hydrated);
-          setViewers(viewersResolved);
-          setLikedUsers(likedDecor);
-          setLikers(likersDecor);
-          setStats({ 
-            views: rawVisitors.length, 
-            likes: likersDecor.length,
-            messages: unreadCount
-          });
+          setError(err?.message || "Failed to load dashboard");
         }
-      } catch (e) {
-        if (mounted) setErr(e.message || "Failed to load dashboard");
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    load();
-    return () => void (mounted = false);
+    loadDashboard();
+    return () => {
+      mounted = false;
+      ctrl.abort();
+    };
   }, []);
 
   if (loading) {
-    return <div className="dash-wrap"><div className="dash-skeleton">Loading…</div></div>;
-  }
-  if (err) {
     return (
-      <div className="dash-wrap">
-        <div className="dash-error">
-          <p>{err}</p>
-          <button className="pill-btn" onClick={() => window.location.reload()}>Retry</button>
+      <div className="dashboard-container">
+        <div className="loading-state">Loading your dashboard...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <div className="error-state">
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="dash-wrap">
-      {/* Header */}
-      <header className="dash-header">
-        <img className="dash-avatar" src={me.profile_picture || FALLBACK_AVATAR} alt="Profile" />
-        <div className="dash-hello">
-          <h1>Welcome back, {displayName}!</h1>
-          <p>
-            Fame rating: <strong>{me.fame_rating}</strong>
-            {me.online === true && <span className="online-dot" title="Online" />}
-            {me.online === false && me.last_seen && (
-              <span className="last-seen"> — last seen {new Date(me.last_seen).toLocaleString()}</span>
-            )}
-          </p>
-        </div>
-      </header>
+  if (!user) {
+    return (
+      <div className="dashboard-container">
+        <div className="error-state">No user data available</div>
+      </div>
+    );
+  }
 
-      {/* Stats */}
-      <section className="dash-cards">
-        <article className="dash-card"><span className="dash-card-label">New Likes</span><span className="dash-card-value">{stats.likes}</span></article>
-        <article className="dash-card"><span className="dash-card-label">New Messages</span><span className="dash-card-value">{stats.messages}</span></article>
-        <article className="dash-card"><span className="dash-card-label">Profile Views</span><span className="dash-card-value">{stats.views}</span></article>
-      </section>
+  const displayName =
+    user.first_name && user.last_name
+      ? `${user.first_name} ${user.last_name}`
+      : user.username;
+
+  return (
+    <div className="dashboard-container">
+      {/* Profile Header */}
+      <div className="profile-header">
+        <div
+          className="profile-pic"
+          onClick={() => navigate("/settings")}
+          style={{ cursor: "pointer" }}
+        >
+          <img src={profilePic} alt="Profile" onError={onImgError} />
+          <span className="profile-label">Profile</span>
+        </div>
+        <h1 className="welcome-text">Welcome back, {displayName}!</h1>
+        <p className="fame-rating">Fame rating: {user.fame_rating || 5}</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="stats-container">
+        <div className="stat-card">
+          <h3>New Likes</h3>
+          <p className="stat-number">{stats.likes}</p>
+        </div>
+        <div className="stat-card">
+          <h3>New Messages</h3>
+          <p className="stat-number">{stats.messages}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Profile Views</h3>
+          <p className="stat-number">{stats.views}</p>
+        </div>
+      </div>
 
       {/* Recent Viewers */}
-      <section className="dash-block">
-        <div className="dash-block-head">
-          <h3>Recent Viewers</h3>
-          <Link to="/discover" className="dash-muted-link">View All</Link>
+      <div className="dashboard-section">
+        <div className="section-header">
+          <h2>Recent Viewers</h2>
+          <button className="view-all-btn" onClick={() => navigate("/discover")}>
+            View All
+          </button>
         </div>
-        <div className="avatar-row">
-          {viewers.slice(0, 12).map((v, i) => (
-            <button
-              key={`${v.username}-${i}`}
-              className="mini-avatar-btn"
-              onClick={() => v.username && navigate(`/u/${encodeURIComponent(v.username)}`)}
-              title={v.username}
-            >
-              <img src={v.avatar || FALLBACK_AVATAR} className="mini-avatar" alt={v.username || "viewer"} />
-            </button>
-          ))}
+        <div className="users-grid">
+          {viewers.length > 0 ? (
+            viewers.slice(0, 12).map((viewer, index) => (
+              <div
+                key={`${viewer.username}-${index}`}
+                className="user-card"
+                onClick={() => navigate(`/u/${viewer.username}`)}
+              >
+                <img src={viewer.avatar} alt={viewer.username} onError={onImgError} />
+                <p className="username">{viewer.username}</p>
+              </div>
+            ))
+          ) : (
+            <p className="no-data">No recent viewers</p>
+          )}
         </div>
-      </section>
+      </div>
 
-      {/* I liked */}
-      <section className="dash-block">
-        <div className="dash-block-head">
-          <h3>Profiles You Liked</h3>
-          <Link to="/discover" className="dash-muted-link">Discover more</Link>
+      {/* Profiles You Liked */}
+      <div className="dashboard-section">
+        <div className="section-header">
+          <h2>Profiles You Liked</h2>
+          <button className="view-all-btn" onClick={() => navigate("/discover")}>
+            Discover more
+          </button>
         </div>
-        <div className="avatar-row">
-          {likedUsers.slice(0, 16).map((u) => (
-            <button
-              key={`liked-${u.username}`}
-              className="mini-avatar-btn"
-              onClick={() => navigate(`/u/${encodeURIComponent(u.username)}`)}
-              title={u.username}
-            >
-              <img src={u.avatar} className="mini-avatar" alt={u.username} />
-              {u.matched && <span className="badge">Matched</span>}
-            </button>
-          ))}
+        <div className="users-grid">
+          {likedUsers.length > 0 ? (
+            likedUsers.slice(0, 16).map((u, index) => (
+              <div
+                key={`${u.username}-${index}`}
+                className="user-card"
+                onClick={() => navigate(`/u/${u.username}`)}
+              >
+                <img src={u.avatar} alt={u.username} onError={onImgError} />
+                <p className="username">{u.username}</p>
+                {u.matched && <span className="match-badge">Matched</span>}
+              </div>
+            ))
+          ) : (
+            <p className="no-data">You haven't liked anyone yet</p>
+          )}
         </div>
-      </section>
+      </div>
 
-      {/* They liked me */}
-      <section className="dash-block">
-        <div className="dash-block-head">
-          <h3>They Liked You</h3>
+      {/* They Liked You */}
+      <div className="dashboard-section">
+        <div className="section-header">
+          <h2>They Liked You</h2>
         </div>
-        <div className="avatar-row">
-          {likers.slice(0, 16).map((u) => (
-            <button
-              key={`liker-${u.username}`}
-              className="mini-avatar-btn"
-              onClick={() => navigate(`/u/${encodeURIComponent(u.username)}`)}
-              title={u.username}
-            >
-              <img src={u.avatar} className="mini-avatar" alt={u.username} />
-              {u.matched && <span className="badge">Matched</span>}
-            </button>
-          ))}
+        <div className="users-grid">
+          {likers.length > 0 ? (
+            likers.slice(0, 16).map((u, index) => (
+              <div
+                key={`${u.username}-${index}`}
+                className="user-card"
+                onClick={() => navigate(`/u/${u.username}`)}
+              >
+                <img src={u.avatar} alt={u.username} onError={onImgError} />
+                <p className="username">{u.username}</p>
+                {u.matched && <span className="match-badge">Matched</span>}
+              </div>
+            ))
+          ) : (
+            <p className="no-data">No one has liked you yet</p>
+          )}
         </div>
-      </section>
+      </div>
 
-      {/* Quick actions */}
-      <section className="dash-quick">
+      {/* Quick Actions */}
+      <div className="quick-actions">
         <h2>Quick Actions</h2>
-        <button className="pill-btn" onClick={() => navigate("/settings")}>Edit Profile</button>
-        <button className="pill-btn" onClick={() => navigate("/messages")}>Check My Messages</button>
-      </section>
+        <button className="action-btn" onClick={() => navigate("/settings")}>
+          Edit Profile
+        </button>
+        <button className="action-btn" onClick={() => navigate("/messages")}>
+          Check My Messages
+        </button>
+      </div>
     </div>
   );
 }

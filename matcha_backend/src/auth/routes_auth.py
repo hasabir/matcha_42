@@ -400,31 +400,65 @@ def resend_verification():
     return jsonify({"error": str(e), "message": "Resend verification failed"}), 409
 
 
-@auth_bp.route('/confirm_email/<token>')
+@auth_bp.route('/confirm_email/<token>', methods=['GET'])
 def confirm_email(token):
   try:
     connection_pool = current_app.config.get("CONNECTION_POOL")
     if not connection_pool:
       return jsonify({"error": "Database connection pool is not available"}), 500
 
-    user_crud = User(connection_pool)
-    user_data = user_crud.get_user_by_token(token)
-    if not user_data:
-      return jsonify({"error": "Token invalid or expired"}), 400
+    # First, validate and decode the token to get the email
+    mail_service = EmailService()
+    try:
+      email = mail_service.confirm_email(token)  # This decodes the token and returns email
+    except SignatureExpired:
+      return jsonify({"error": "Verification link has expired. Please request a new one."}), 400
+    except Exception as e:
+      logger.error(f"Token validation failed: {e}")
+      return jsonify({"error": "Invalid verification token"}), 400
 
+    # Now find the user by email
+    user_crud = User(connection_pool)
+    if hasattr(user_crud, "get_user_by_email"):
+      user_data = user_crud.get_user_by_email(email=email)
+    else:
+      # Fallback: get user by verification_token if get_user_by_email doesn't exist
+      user_data = user_crud.get_user_by_token(token)
+    
+    if not user_data:
+      return jsonify({"error": "User not found"}), 404
+
+    # Check if already verified
+    if user_data.get('verified'):
+      return jsonify({"message": "Email already verified", "already_verified": True}), 200
+
+    # Mark user as verified and active
     user_crud.update_user({
       'verification_token': None,
       'verified': True,
-      'active': True
+      'active': True,
+      'first_login': True  # This is still their first login, they just verified email
     }, user_data['username'])
 
+    # Generate access token for auto-login
+    access_token = SecurityUtils.generate_access_token(user_data['id'])
     refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
-    response = redirect('http://localhost:3000/signin')
-    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict')
-    return response
+    
+    # Return JSON response for frontend
+    response = jsonify({
+      "message": "Email verified successfully!",
+      "access_token": access_token,
+      "user": {
+        "username": user_data['username'],
+        "email": user_data['email'],
+        "verified": True
+      }
+    })
+    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict', secure=False)
+    return response, 200
 
   except SignatureExpired:
-    return jsonify({"error": "Token expired"}), 400
+    return jsonify({"error": "Verification link has expired"}), 400
   except Exception as e:
     logger.exception("confirm_email failed")
     return jsonify({"error": str(e)}), 400
@@ -444,16 +478,47 @@ def login():
     if not user or not SecurityUtils.password_check(user['password'], user_data.get('password', '')):
       return jsonify({"error": "Invalid username or password"}), 401
 
+    # Check if user is verified
+    if not user.get('verified', False):
+      return jsonify({"error": "Please verify your email before logging in"}), 401
+
     access_token = SecurityUtils.generate_access_token(user['id'])
     refresh_token = SecurityUtils.generate_refresh_token(user['id'])
 
-    response = jsonify({'access_token': access_token})
-    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict')
+    # Import Profile here to avoid circular imports
+    from database.crud.profile_crud import Profile
+    profile_crud = Profile(connection_pool)
+    
+    # Get profile completion status for redirect logic
+    profile_status = profile_crud.get_profile_completion_status(user['id'])
+    is_first_login = user.get('first_login', True)
+    
+    # Determine redirect destination
+    if is_first_login or not profile_status['is_completed']:
+      redirect_to = 'setupProfile'
+    else:
+      redirect_to = 'home'
+    
+    # Update user status and mark as no longer first login
+    update_data = {
+      "last_seen": datetime.datetime.utcnow(), 
+      "active": True
+    }
+    
+    # Only update first_login if it's currently True
+    if is_first_login:
+      update_data["first_login"] = False
+    
+    user_crud.update_user(update_data, user_data["username"])
 
-    user_crud.update_user(
-      {"last_seen": datetime.datetime.utcnow(), "active": True},
-      user_data["username"]
-    )
+    response = jsonify({
+      'access_token': access_token,
+      'redirect_to': redirect_to,
+      'first_login': is_first_login,
+      'profile_completed': profile_status['is_completed']
+    })
+    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict')
+    
     return response
   except Exception as e:
     logger.exception("Error during login")
@@ -476,3 +541,94 @@ def refresh():
   except Exception as e:
     logger.exception("refresh failed")
     return jsonify({'error': str(e)}), 500
+
+
+@auth_bp.route('/profile-status', methods=['GET'])
+def get_profile_status():
+  """Get user's profile completion status and determine redirect logic"""
+  try:
+    # This endpoint requires authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+      return jsonify({'error': 'Missing or invalid authorization header'}), 401
+    
+    token = auth_header.split(' ')[1]
+    payload = SecurityUtils.verify_jwt_token(token)
+    
+    if not payload or 'error' in payload:
+      return jsonify({'error': 'Invalid or expired token'}), 401
+    
+    user_id = payload['user_id']
+    
+    # Get database connections
+    connection_pool = current_app.config.get("CONNECTION_POOL")
+    if not connection_pool:
+      return jsonify({"error": "Database connection pool is not available"}), 500
+    
+    user_crud = User(connection_pool)
+    
+    # Import Profile here to avoid circular imports
+    from database.crud.profile_crud import Profile
+    profile_crud = Profile(connection_pool)
+    
+    # Get user info
+    user = user_crud.get_user_by("id", user_id)
+    if not user:
+      return jsonify({'error': 'User not found'}), 404
+    
+    # Get profile completion status
+    profile_status = profile_crud.get_profile_completion_status(user_id)
+    
+    # Determine redirect logic
+    is_first_login = user.get('first_login', True)
+    profile_completed = profile_status['is_completed']
+    profile_has_essentials = profile_status['has_essentials']
+    
+    # Determine where to redirect
+    if is_first_login or not profile_completed:
+      redirect_to = 'setupProfile'
+      should_show_setup = True
+    else:
+      redirect_to = 'home'
+      should_show_setup = False
+    
+    return jsonify({
+      'first_login': is_first_login,
+      'profile_completed': profile_completed,
+      'profile_has_essentials': profile_has_essentials,
+      'redirect_to': redirect_to,
+      'should_show_setup': should_show_setup,
+      'profile_details': profile_status
+    }), 200
+    
+  except Exception as e:
+    logger.exception("get_profile_status failed")
+    return jsonify({'error': str(e)}), 500
+
+
+@auth_bp.route('/logo-redirect', methods=['GET'])
+def logo_redirect():
+  """Handle logo click redirects based on authentication status"""
+  try:
+    # Check if user is authenticated
+    auth_header = request.headers.get('Authorization')
+    
+    # If no auth header, redirect to landing
+    if not auth_header or not auth_header.startswith('Bearer '):
+      return jsonify({'redirect_to': 'landing'}), 200
+    
+    # Verify token
+    token = auth_header.split(' ')[1]
+    payload = SecurityUtils.verify_jwt_token(token)
+    
+    # If token is invalid/expired, redirect to landing
+    if not payload or 'error' in payload:
+      return jsonify({'redirect_to': 'landing'}), 200
+    
+    # If user is authenticated, redirect to home
+    return jsonify({'redirect_to': 'home'}), 200
+    
+  except Exception as e:
+    logger.exception("logo_redirect failed")
+    # On error, default to landing page
+    return jsonify({'redirect_to': 'landing'}), 200

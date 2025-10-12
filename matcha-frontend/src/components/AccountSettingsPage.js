@@ -247,6 +247,26 @@ import "./AccountSettingsPage.css";
  * are not available.
  */
 
+const API_BASE = "http://localhost:5000";
+
+/**
+ * Convert relative image paths to absolute URLs
+ * Handles both /static/profiles/... and /profiles/... (for backward compatibility)
+ */
+function toAbsoluteUrl(url) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  let cleanUrl = url.replace(/^\/+/, "");
+  
+  // If the URL doesn't start with 'static/' but starts with 'profiles/', add 'static/' prefix
+  if (cleanUrl.startsWith("profiles/") && !cleanUrl.startsWith("static/")) {
+    cleanUrl = `static/${cleanUrl}`;
+  }
+  
+  return `${API_BASE}/${cleanUrl}`;
+}
+
 const AccountSettingsPage = () => {
   // Basic profile fields
   const [firstName, setFirstName] = useState("");
@@ -300,34 +320,42 @@ const AccountSettingsPage = () => {
       setLoading(true);
       setStatus(null);
       try {
-        // 1) Load profile details - FIXED: use correct endpoint
-        const res = await fetchWithAuth("http://localhost:5000/api/profile/get_profile/me");
+        // 1) Load profile details
+        const res = await fetchWithAuth("http://localhost:5000/api/profile/me");
         const data = await res.json();
-        if (res.ok && data.result) {
-          const profile = data.result;
-          setFirstName(profile.first_name || "");
-          setLastName(profile.last_name || "");
-          setEmail(profile.email || "");
-          setBio(profile.bio || "");
-          setGender(profile.gender || "");
-          setSexualPreferences(profile.sexual_preferences || "");
-          setLocation(profile.location || "");
-          setLat(profile.lat ?? null);
-          setLng(profile.lng ?? null);
-          setAccuracy(profile.accuracy ?? null);
-          if (profile.fame_rating !== undefined) setFameRating(profile.fame_rating);
+        if (res.ok) {
+          setFirstName(data.first_name || "");
+          setLastName(data.last_name || "");
+          setEmail(data.email || "");
+          setBio(data.bio || "");
+          setGender(data.gender || "");
+          setSexualPreferences(data.sexual_preferences || "");
+          setLocation(data.location || "");
+          setLat(data.lat ?? null);
+          setLng(data.lng ?? null);
+          setAccuracy(data.accuracy ?? null);
+          if (data.fame_rating !== undefined) setFameRating(data.fame_rating);
         }
       } catch (e) {
         console.warn("Failed to load profile", e);
         setStatus("Error loading profile");
       }
       try {
-        // 2) Load user's images - use "me" endpoint
-        const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
+        // 2) Load user's images
+        const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_my_images");
         const imgData = await imgRes.json();
         if (imgRes.ok && imgData?.result) {
-          // result is array of image URLs
-          setImages(Array.isArray(imgData.result) ? imgData.result.map(url => ({ url })) : []);
+          // Convert relative paths to absolute URLs
+          const imagesWithAbsoluteUrls = imgData.result.map(img => {
+            if (typeof img === 'string') {
+              return toAbsoluteUrl(img);
+            }
+            return {
+              ...img,
+              url: toAbsoluteUrl(img.url)
+            };
+          });
+          setImages(imagesWithAbsoluteUrls);
         }
       } catch (e) {
         console.warn("Failed to load images", e);
@@ -337,32 +365,30 @@ const AccountSettingsPage = () => {
         const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
         const tagData = await tagRes.json();
         if (tagRes.ok && tagData?.result) {
-          setTags(tagData.result.map((t) => t.tag || t));
+          setTags(tagData.result.map((t) => t.tag));
         }
       } catch (e) {
         console.warn("Failed to load tags", e);
       }
       try {
-        // 4) Load fame rating
-        const fameRes = await fetchWithAuth("http://localhost:5000/api/profile/get_fame_rating");
+        // 4) Load fame rating (if not already set) and watchers/likers if available
+        const fameRes = await fetchWithAuth("http://localhost:5000/api/profile/get_fame");
         const fameData = await fameRes.json();
-        if (fameRes.ok && fameData.fame_rating !== undefined) {
-          setFameRating(fameData.fame_rating);
-        }
+        if (fameRes.ok) setFameRating(fameData.fame_rating);
       } catch (_) {
         // ignore if endpoint not available
       }
       try {
         // watchers list
-        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_vistors");
+        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_views");
         const watchData = await watchRes.json();
         if (watchRes.ok && watchData?.result) setWatchers(watchData.result);
       } catch (_) {
         // ignore
       }
       try {
-        // likers list - use interactions API
-        const likeRes = await fetchWithAuth("http://localhost:5000/api/interactions/get_users/likers");
+        // likers list
+        const likeRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_likes");
         const likeData = await likeRes.json();
         if (likeRes.ok && likeData?.result) setLikers(likeData.result);
       } catch (_) {
@@ -374,72 +400,36 @@ const AccountSettingsPage = () => {
   }, []);
 
   /**
-   * Use browser geolocation to set lat/lng/accuracy and immediately sync
-   * with backend. On failure the fields remain unchanged.
+   * Use browser geolocation to set lat/lng/accuracy. On failure the fields
+   * remain unchanged. Users can override the text location manually.
    */
-  const locateByGPS = async () => {
-    if (!navigator.geolocation) {
-      setStatus("Geolocation is not supported by your browser");
-      return;
-    }
-    
+  const locateByGPS = () => {
+    if (!navigator.geolocation) return;
     setLocating(true);
-    setStatus(null);
-    
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const latitude = Number(pos.coords.latitude.toFixed(6));
-        const longitude = Number(pos.coords.longitude.toFixed(6));
-        const gpsAccuracy = Math.round(pos.coords.accuracy);
-        
-        setLat(latitude);
-        setLng(longitude);
-        setAccuracy(gpsAccuracy);
-        
-        // Immediately sync GPS coordinates with backend
-        try {
-          const locRes = await fetchWithAuth("http://localhost:5000/api/profile/set_location", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              latitude,
-              longitude,
-              accuracy: gpsAccuracy,
-            }),
-          });
-          
-          if (locRes.ok) {
-            setStatus("GPS location updated successfully!");
-          } else {
-            const locData = await locRes.json().catch(() => ({}));
-            throw new Error(locData?.error || "Failed to sync GPS location");
-          }
-        } catch (err) {
-          console.error("GPS sync error:", err);
-          setStatus("GPS detected but failed to sync with server");
-        } finally {
-          setLocating(false);
-        }
-      },
-      (error) => {
+      (pos) => {
+        setLat(Number(pos.coords.latitude.toFixed(6)));
+        setLng(Number(pos.coords.longitude.toFixed(6)));
+        setAccuracy(Math.round(pos.coords.accuracy));
         setLocating(false);
-        setStatus(`GPS error: ${error.message}`);
       },
+      () => setLocating(false),
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 
   /**
-   * Update profile information. Sends a POST with provided fields to
-   * /api/profile/update_profile. First and last names update the user table,
-   * other fields update the profile table. GPS coordinates are sent separately
-   * to /api/profile/set_location if available.
+   * Update profile information. Sends a PATCH with provided fields to
+   * /api/profile/update_profile. Only first and last names are passed
+   * separately to the user table; other fields are stored in the profile
+   * table. Location and GPS coords are included. After successful
+   * update we refetch profile info to display updated fame rating or
+   * other derived fields.
    */
   const handleInfoUpdate = async () => {
     setSaving(true);
     setStatus(null);
     try {
-      // 1) Update profile info (without GPS coords)
       const res = await fetchWithAuth("http://localhost:5000/api/profile/update_profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -450,43 +440,26 @@ const AccountSettingsPage = () => {
           bio,
           gender,
           sexual_preferences: sexualPreferences,
-          location, // text location only
+          location,
+          lat,
+          lng,
+          accuracy,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to update profile");
-
-      // 2) If GPS coordinates are available, send them to set_location endpoint
-      if (lat !== null && lng !== null) {
-        try {
-          const locRes = await fetchWithAuth("http://localhost:5000/api/profile/set_location", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              latitude: lat,
-              longitude: lng,
-              accuracy: accuracy || 50,
-            }),
-          });
-          if (!locRes.ok) {
-            console.warn("Failed to update GPS location");
-          }
-        } catch (locErr) {
-          console.warn("Location update error:", locErr);
-        }
-      }
-
       setStatus("Profile updated.");
-      
-      // 3) Refresh fame rating
+      // refresh fame rating and images/tags
+      // reuse the loader logic
+      setLoading(true);
       try {
-        const refRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile/me");
+        const refRes = await fetchWithAuth("http://localhost:5000/api/profile/me");
         const refData = await refRes.json();
-        if (refRes.ok && refData.result) {
-          setFameRating(refData.result.fame_rating);
+        if (refRes.ok) {
+          setFameRating(refData.fame_rating);
         }
       } catch (_) {}
-      
+      // update location lat/lng if changed by backend
     } catch (e) {
       setStatus(e.message);
     } finally {
@@ -533,7 +506,7 @@ const AccountSettingsPage = () => {
     try {
       setSaving(true);
       const res = await fetchWithAuth("http://localhost:5000/api/profile/update_profile_picture", {
-        method: "PUT", // Backend expects PUT method
+        method: "POST",
         body: formData,
       });
       if (!res.ok) {
@@ -541,12 +514,10 @@ const AccountSettingsPage = () => {
         throw new Error(data?.error || "Failed to update profile picture");
       }
       setNewProfilePic(null);
-      // reload images - FIXED: use correct endpoint
-      const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
+      // reload images
+      const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_my_images");
       const imgData = await imgRes.json();
-      if (imgRes.ok && imgData?.result) {
-        setImages(Array.isArray(imgData.result) ? imgData.result.map(url => ({ url })) : []);
-      }
+      if (imgRes.ok && imgData?.result) setImages(imgData.result);
       setStatus("Profile picture updated.");
     } catch (e) {
       setStatus(e.message);
@@ -812,23 +783,19 @@ const AccountSettingsPage = () => {
             </div>
           </div>
 
-          <label htmlFor="location-input">Location (City, Country)</label>
           <input
-            id="location-input"
             type="text"
-            placeholder="e.g., Paris, France"
+            placeholder="Location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
-          
-          <label>GPS Coordinates (for matching nearby users)</label>
           <div className="coords-group">
             <button type="button" className="gps-btn" onClick={locateByGPS} disabled={locating}>
               {locating ? "Locating…" : "Use my GPS"}
             </button>
             {lat && lng && (
               <small className="coords-hint">
-                {lat}, {lng} (±{accuracy}m)
+                Detected: {lat}, {lng} (±{accuracy}m)
               </small>
             )}
           </div>

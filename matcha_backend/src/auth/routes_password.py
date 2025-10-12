@@ -251,16 +251,19 @@ def forgot_password():
                 "message": "If the account exists, an email was sent."
             }), 200
 
-        # Generate token *using EmailService* (this returns the token even if e-mail isn't sent)
+        # Generate token *using EmailService* and send password reset email
         mail_service = EmailService()
-        token = mail_service.send_verification_email(user['email'], "reset_password")
+        token = mail_service.send_reset_password_email(user['email'], user['username'])
 
         # Store token so we can verify it later
         user_crud.update_user({'reset_password_token': token}, user['username'])
 
+        # Return response with token for development/testing
+        # In production, you might want to remove the token from the response
         return jsonify({
             "status": "ok",
-            "message": "If the account exists, an email was sent."
+            "message": "If the account exists, an email was sent.",
+            "token": token  # For testing - allows frontend to create direct link
         }), 200
 
     except Exception as e:
@@ -315,18 +318,32 @@ def reset_password():
 
 @auth_bp.route("/confirm_email_reset/<token>", methods=["GET"])
 def confirm_email_reset(token):
+    """
+    Step 2: User clicks link in email. We decode the token to get the email,
+    look up the user, and redirect to the frontend reset page with token + username.
+    """
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
 
+        # Decode the token to get the email
+        mail_service = EmailService()
+        email = mail_service.confirm_reset_token(token)
+        
+        # Look up user by email
         user_crud = User(connection_pool)
-        user = user_crud.get_user_by("reset_password_token", token)
+        user = user_crud.get_user_by_email(email=email)
+        
         if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Verify the token matches what's stored
+        if user.get("reset_password_token") != token:
             return jsonify({"error": "Token invalid or expired"}), 400
 
-        # ✅ Redirect user to your React reset page
-        return redirect(f"http://localhost:3000/reset-password?token={token}", code=302)
+        # ✅ Redirect to frontend reset page with token AND username
+        return redirect(f"http://localhost:3000/reset-password?token={token}&username={user['username']}", code=302)
 
     except SignatureExpired:
         return jsonify({"error": "Token expired"}), 400

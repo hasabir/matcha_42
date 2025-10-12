@@ -120,11 +120,6 @@
   font-weight: 600;
   color: var(--gray-700);
   margin-bottom: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.settings-section label:first-of-type {
-  margin-top: 0;
 }
 
 /* Two column layout for gender/preferences */
@@ -155,10 +150,6 @@
   gap: 1rem;
   margin-top: -0.5rem;
   margin-bottom: 1rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, #fef3f8, #f9f5ff);
-  border-radius: 0.75rem;
-  border: 2px solid #fce7f3;
 }
 
 .gps-btn {
@@ -172,14 +163,6 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.gps-btn::before {
-  content: '📍';
-  font-size: 1.1rem;
 }
 
 .gps-btn:hover:not(:disabled) {
@@ -193,21 +176,8 @@
 }
 
 .coords-hint {
-  color: var(--gray-700);
+  color: var(--gray-600);
   font-size: 0.875rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  background: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.coords-hint::before {
-  content: '✅';
-  font-size: 1rem;
 }
 
 /* Tags/Interests */
