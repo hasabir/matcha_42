@@ -33,9 +33,8 @@ const NavBar = () => {
   const authedPages = [
     { name: "Home", path: "/" },
     { name: "Discover", path: "/discover" },
-    { name: "Profile", path: "/profile-step-one" },
+    { name: "Profile", path: "/profile" },
     { name: "Settings", path: "/settings" },
-    { name: "Dashboard", path: "/dashboard" },
   ];
 
   return (

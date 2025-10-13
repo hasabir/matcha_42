@@ -320,29 +320,30 @@ const AccountSettingsPage = () => {
       setLoading(true);
       setStatus(null);
       try {
-        // 1) Load profile details
-        const res = await fetchWithAuth("http://localhost:5000/api/profile/me");
+        // 1) Load profile details - using correct endpoint
+        const res = await fetchWithAuth("http://localhost:5000/api/profile/get_profile/me");
         const data = await res.json();
-        if (res.ok) {
-          setFirstName(data.first_name || "");
-          setLastName(data.last_name || "");
-          setEmail(data.email || "");
-          setBio(data.bio || "");
-          setGender(data.gender || "");
-          setSexualPreferences(data.sexual_preferences || "");
-          setLocation(data.location || "");
-          setLat(data.lat ?? null);
-          setLng(data.lng ?? null);
-          setAccuracy(data.accuracy ?? null);
-          if (data.fame_rating !== undefined) setFameRating(data.fame_rating);
+        if (res.ok && data.result) {
+          const profile = data.result;
+          setFirstName(profile.first_name || "");
+          setLastName(profile.last_name || "");
+          setEmail(profile.email || "");
+          setBio(profile.bio || "");
+          setGender(profile.gender || "");
+          setSexualPreferences(profile.sexual_preferences || "");
+          setLocation(profile.location || "");
+          setLat(profile.lat ?? null);
+          setLng(profile.lng ?? null);
+          setAccuracy(profile.accuracy ?? null);
+          if (profile.fame_rating !== undefined) setFameRating(profile.fame_rating);
         }
       } catch (e) {
         console.warn("Failed to load profile", e);
         setStatus("Error loading profile");
       }
       try {
-        // 2) Load user's images
-        const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_my_images");
+        // 2) Load user's images - using correct endpoint
+        const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
         const imgData = await imgRes.json();
         if (imgRes.ok && imgData?.result) {
           // Convert relative paths to absolute URLs
@@ -372,7 +373,7 @@ const AccountSettingsPage = () => {
       }
       try {
         // 4) Load fame rating (if not already set) and watchers/likers if available
-        const fameRes = await fetchWithAuth("http://localhost:5000/api/profile/get_fame");
+        const fameRes = await fetchWithAuth("http://localhost:5000/api/profile/get_fame_rating");
         const fameData = await fameRes.json();
         if (fameRes.ok) setFameRating(fameData.fame_rating);
       } catch (_) {
@@ -380,7 +381,7 @@ const AccountSettingsPage = () => {
       }
       try {
         // watchers list
-        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_views");
+        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_vistors");
         const watchData = await watchRes.json();
         if (watchRes.ok && watchData?.result) setWatchers(watchData.result);
       } catch (_) {
@@ -448,18 +449,21 @@ const AccountSettingsPage = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to update profile");
-      setStatus("Profile updated.");
+      setStatus("✅ Profile updated successfully!");
+      
       // refresh fame rating and images/tags
-      // reuse the loader logic
-      setLoading(true);
       try {
-        const refRes = await fetchWithAuth("http://localhost:5000/api/profile/me");
+        const refRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile/me");
         const refData = await refRes.json();
-        if (refRes.ok) {
-          setFameRating(refData.fame_rating);
+        if (refRes.ok && refData.result) {
+          setFameRating(refData.result.fame_rating);
         }
-      } catch (_) {}
-      // update location lat/lng if changed by backend
+      } catch (_) {
+        console.warn("Failed to refresh fame rating");
+      }
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus(e.message);
     } finally {
@@ -484,12 +488,15 @@ const AccountSettingsPage = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to change password");
-      setStatus("Password changed.");
+      setStatus("✅ Password changed successfully!");
       setCurrentPwd("");
       setNewPwd("");
       setConfirmPwd("");
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
-      setStatus(e.message);
+      setStatus(`❌ ${e.message}`);
     } finally {
       setPwdSaving(false);
     }
@@ -506,7 +513,7 @@ const AccountSettingsPage = () => {
     try {
       setSaving(true);
       const res = await fetchWithAuth("http://localhost:5000/api/profile/update_profile_picture", {
-        method: "POST",
+        method: "PUT",
         body: formData,
       });
       if (!res.ok) {
@@ -514,11 +521,25 @@ const AccountSettingsPage = () => {
         throw new Error(data?.error || "Failed to update profile picture");
       }
       setNewProfilePic(null);
-      // reload images
-      const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_my_images");
+      // reload images using correct endpoint
+      const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
       const imgData = await imgRes.json();
-      if (imgRes.ok && imgData?.result) setImages(imgData.result);
-      setStatus("Profile picture updated.");
+      if (imgRes.ok && imgData?.result) {
+        const imagesWithAbsoluteUrls = imgData.result.map(img => {
+          if (typeof img === 'string') {
+            return toAbsoluteUrl(img);
+          }
+          return {
+            ...img,
+            url: toAbsoluteUrl(img.url)
+          };
+        });
+        setImages(imagesWithAbsoluteUrls);
+      }
+      setStatus("✅ Profile picture updated successfully!");
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus(e.message);
     } finally {
@@ -548,7 +569,10 @@ const AccountSettingsPage = () => {
         setImages((prev) => [...prev, ...data.image_paths.map((p) => ({ url: p }))]);
       }
       setNewImages([]);
-      setStatus("Images uploaded.");
+      setStatus("✅ Images uploaded successfully!");
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus(e.message);
     } finally {
@@ -578,7 +602,10 @@ const AccountSettingsPage = () => {
       const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
       const tagData = await tagRes.json();
       if (tagRes.ok && tagData?.result) setTags(tagData.result.map((t) => t.tag));
-      setStatus("Tag added.");
+      setStatus("✅ Interest added successfully!");
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus(e.message);
     } finally {
@@ -603,7 +630,10 @@ const AccountSettingsPage = () => {
       const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
       const tagData = await tagRes.json();
       if (tagRes.ok && tagData?.result) setTags(tagData.result.map((t) => t.tag));
-      setStatus("Tag removed.");
+      setStatus("✅ Interest removed successfully!");
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus(e.message);
     }

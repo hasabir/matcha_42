@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Protected wrapper (keep yours)
 import RequireAuth from "./routes/RequireAuth";
@@ -13,12 +13,15 @@ import DiscoverPage from "./components/DiscoverPage";
 import AccountSettingsPage from "./components/AccountSettingsPage";
 import VerifyEmailPage from "./components/VerifyEmailPage";
 import LandingPage from "./components/landingpage";
-import Dashboard from "./components/dashboard";
 
 // Password reset flow
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ressetpassword";
 import ConfirmReset from "./components/ConfirmReset";
+
+// User profile pages
+import UserProfilePage from "./components/UserProfilePage";
+import MyProfilePage from "./components/MyProfilePage";
 
 // Auth validation
 import { validateToken } from "./utils/authCheck";
@@ -69,7 +72,9 @@ function App() {
           <Route path="/profile-step-one" element={<ProfileStepOne />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/settings" element={<AccountSettingsPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Navigate to="/profile" replace />} />
+          <Route path="/profile" element={<MyProfilePage />} />
+          <Route path="/profile/:username" element={<UserProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

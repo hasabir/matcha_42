@@ -379,3 +379,35 @@ def fame_rating():
     except Exception as e:
         logger.exception("get_fame_rating failed")
         return jsonify({"error": str(e)}), 409
+
+
+@profile_bp.route("/my_profile", methods=["GET"])
+@auth_guard
+def my_profile():
+    """Return current logged-in user's username and basic info."""
+    try:
+        pool = current_app.config.get("CONNECTION_POOL")
+        if not pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        user_crud = User(pool)
+        profile_crud = Profile(pool)
+        
+        # Get username from user_id stored in g by auth_guard
+        user_data = user_crud.get_user_by('id', g.user_id, 'username, email, first_name, last_name')
+        if not user_data:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Check if profile exists
+        profile = profile_crud.get_profile_by_user_id(g.user_id)
+        
+        return jsonify({
+            "username": user_data["username"],
+            "email": user_data.get("email"),
+            "first_name": user_data.get("first_name"),
+            "last_name": user_data.get("last_name"),
+            "has_profile": profile is not None
+        }), 200
+    except Exception as e:
+        logger.exception("my_profile failed")
+        return jsonify({"error": str(e)}), 500

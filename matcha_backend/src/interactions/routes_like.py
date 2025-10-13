@@ -301,3 +301,91 @@ def is_matched():
     except Exception as e:
         logger.exception("is_matched failed")
         return jsonify({"error": str(e)}), 400
+
+
+@interactions_bp.route("/who_liked_me", methods=["GET", "OPTIONS"])
+@auth_guard
+def who_liked_me():
+    """Alias for /get_users/likers - Return users who liked you."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        interactions_crud = Interactions(connection_pool, g.user_id, None)
+        user_crud = User(connection_pool)
+        profile_crud = Profile(connection_pool)
+
+        # Get user IDs who liked current user
+        user_ids = interactions_crud.get_user_likers()
+        
+        # Handle None case - return empty list if no likers
+        if user_ids is None:
+            user_ids = []
+
+        # Get full user info for each liker
+        likers = []
+        for user_id in user_ids:
+            user_info = user_crud.get_user_by('id', user_id, "username, first_name, last_name")
+            if user_info:
+                profile = profile_crud.get_profile_by_user_id(user_id)
+                likers.append({
+                    "user_id": user_id,
+                    "username": user_info.get("username"),
+                    "first_name": user_info.get("first_name"),
+                    "last_name": user_info.get("last_name"),
+                    "profile_picture": profile.get("profile_picture") if profile else None
+                })
+
+        return jsonify(likers), 200
+
+    except Exception as e:
+        logger.exception("who_liked_me failed")
+        return jsonify({"error": str(e)}), 400
+
+
+@interactions_bp.route("/my_connections", methods=["GET", "OPTIONS"])
+@auth_guard
+def my_connections():
+    """Return users who are mutual matches (connections) with current user."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    try:
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+
+        matching_crud = Matching(connection_pool)
+        user_crud = User(connection_pool)
+        profile_crud = Profile(connection_pool)
+
+        # Get matched user IDs
+        matched_user_ids = matching_crud.get_matched_users(g.user_id)
+        
+        # Handle None case - return empty list if no matches
+        if matched_user_ids is None:
+            matched_user_ids = []
+
+        # Get full user info for each match
+        matches = []
+        for user_id in matched_user_ids:
+            user_info = user_crud.get_user_by('id', user_id, "username, first_name, last_name")
+            if user_info:
+                profile = profile_crud.get_profile_by_user_id(user_id)
+                matches.append({
+                    "user_id": user_id,
+                    "username": user_info.get("username"),
+                    "first_name": user_info.get("first_name"),
+                    "last_name": user_info.get("last_name"),
+                    "profile_picture": profile.get("profile_picture") if profile else None
+                })
+
+        return jsonify(matches), 200
+
+    except Exception as e:
+        logger.exception("my_connections failed")
+        return jsonify({"error": str(e)}), 400
