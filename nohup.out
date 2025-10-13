@@ -1,0 +1,10 @@
+🚀 Starting Mock Matcha Backend Server...
+📁 Upload folder: /home/khaoula/matcha_1/static/uploads
+🌐 CORS enabled for http://localhost:3000
+🔗 Health check: http://localhost:5000/
+🌟 Running on port 5000
+==================================================
+ * Serving Flask app 'mock_backend'
+ * Debug mode: on
+Address already in use
+Port 5000 is in use by another program. Either identify and stop that program, or start the server with a different port.

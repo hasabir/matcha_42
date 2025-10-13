@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth, api, BASE } from "../utils/api";
+import ProfileSuggestions from "./ProfileSuggestions";
 import "./MyProfilePage.css";
 
 const FALLBACK_AVATAR = "https://static-00.iconduck.com/assets.00/user-avatar-1024x1024-2xhpdo1n.png";
@@ -863,6 +864,9 @@ const MyProfilePage = () => {
           )}
         </div>
       </div>
+
+      {/* Profile Suggestions - Integrated Browsing */}
+      <ProfileSuggestions currentUser={profile} />
 
       {/* Quick Actions */}
       <div className="quick-actions">
