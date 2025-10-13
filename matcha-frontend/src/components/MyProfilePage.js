@@ -13,9 +13,15 @@ function toAbsoluteUrl(url) {
 
   try {
     let cleanUrl = url.replace(/^\/+/, "");
+    
+    // Avoid double "static/" - only add if path doesn't already start with "static/"
     if (cleanUrl.startsWith("profiles/") && !cleanUrl.startsWith("static/")) {
       cleanUrl = `static/${cleanUrl}`;
     }
+    
+    // Remove any double "static/static/" that might have been created
+    cleanUrl = cleanUrl.replace(/^static\/static\//, "static/");
+    
     return `${API_BASE.replace(/\/+$/, "")}/${cleanUrl}`;
   } catch {
     return url.startsWith("/") ? `${API_BASE}${url}` : `${API_BASE}/${url}`;
@@ -487,6 +493,8 @@ const MyProfilePage = () => {
   // Photo delete handler
   const handleDeletePhoto = async (photoPath) => {
     if (!photoPath) return;
+    
+    console.log("🗑️ Delete photo requested for:", photoPath);
     
     const confirmDelete = window.confirm("Are you sure you want to delete this photo?");
     if (!confirmDelete) return;

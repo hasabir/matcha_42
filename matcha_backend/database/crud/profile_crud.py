@@ -123,6 +123,13 @@ class Profile(DBManager):
         result = self.select('images', "image_url", where="user_id = %s", where_params=(user_id,))
         return [image['image_url'] for image in result]
     
+    def get_user_images(self, user_id):
+        """Get detailed image information including IDs"""
+        logger = logging.getLogger(__name__)
+        
+        result = self.select('images', "image_id, image_url", where="user_id = %s", where_params=(user_id,))
+        return [{"image_id": image['image_id'], "image_path": image['image_url']} for image in result]
+    
     
     def delete_image(self, user_id, image_id):
         return self.delete(
