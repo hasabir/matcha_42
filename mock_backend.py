@@ -133,10 +133,16 @@ def upload_images():
     user_data = mock_users["test_user"]
     user_data["images"].extend(uploaded_paths)
     
+    # Set first uploaded image as profile picture if user has no profile picture
+    if not user_data["profile_picture"] and uploaded_paths:
+        user_data["profile_picture"] = uploaded_paths[0]
+        print(f"🖼️ Set profile picture to: {uploaded_paths[0]}")
+    
     # Simulate processing delay
     time.sleep(0.5)
     
     return jsonify({
+        "status": "ok",
         "message": f"Successfully uploaded {len(uploaded_paths)} images",
         "image_paths": uploaded_paths
     })
@@ -151,10 +157,24 @@ def get_images(username):
     else:
         return jsonify({"result": []})
 
-@app.route("/api/profile/delete_image", methods=["DELETE"])
+@app.route("/api/profile/get_profile_pic/<username>", methods=["GET"])
+@mock_auth_required
+def get_profile_pic(username):
+    """Mock endpoint for getting user profile picture"""
+    if username == "me":
+        user_data = mock_users["test_user"]
+        return jsonify({"status": "ok", "result": user_data["profile_picture"]})
+    else:
+        return jsonify({"status": "ok", "result": None})
+
+@app.route("/api/profile/delete_image", methods=["DELETE", "OPTIONS"])
 @mock_auth_required
 def delete_image():
     """Mock endpoint for deleting an image"""
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return "", 200
+        
     data = request.get_json()
     if not data or 'image_path' not in data:
         return jsonify({"error": "No image path provided"}), 400
@@ -164,25 +184,40 @@ def delete_image():
     
     # Remove from mock user data
     user_data = mock_users["test_user"]
-    if image_path in user_data["images"]:
-        user_data["images"].remove(image_path)
-        
-        # If it was the profile picture, update to next available image
-        if user_data["profile_picture"] == image_path:
-            user_data["profile_picture"] = user_data["images"][0] if user_data["images"] else None
-        
-        # Try to delete actual file
-        try:
-            filename = image_path.replace("/static/uploads/", "")
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                print(f"✅ Deleted file: {filepath}")
-        except Exception as e:
-            print(f"⚠️ Could not delete file: {e}")
-        
-        return jsonify({"message": "Image deleted successfully"})
+    
+    # Find and remove the image (handle different path formats)
+    image_found = False
+    for i, img in enumerate(user_data["images"]):
+        if (img == image_path or 
+            img.endswith(image_path.split('/')[-1]) or 
+            image_path.endswith(img.split('/')[-1]) or
+            img.replace('/static/', '') == image_path.replace('/static/', '')):
+            
+            removed_image = user_data["images"].pop(i)
+            image_found = True
+            print(f"✅ Removed image: {removed_image}")
+            
+            # If it was the profile picture, update to next available image
+            if user_data["profile_picture"] == removed_image:
+                user_data["profile_picture"] = user_data["images"][0] if user_data["images"] else None
+                print(f"🖼️ Updated profile picture to: {user_data['profile_picture']}")
+            
+            # Try to delete actual file
+            try:
+                filename = removed_image.replace("/static/uploads/", "")
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"🗑️ Deleted file: {filepath}")
+            except Exception as e:
+                print(f"⚠️ Could not delete file: {e}")
+            
+            break
+    
+    if image_found:
+        return jsonify({"status": "ok", "message": "Image deleted successfully"})
     else:
+        print(f"❌ Image not found in user data. Available images: {user_data['images']}")
         return jsonify({"error": "Image not found"}), 404
 
 @app.route("/api/profile/get_profile_vistors", methods=["GET"])
@@ -224,7 +259,7 @@ def health_check():
     })
 
 if __name__ == "__main__":
-    port = 5001  # Use port 5001 to avoid conflicts
+    port = 5000  # Use port 5000 to match frontend expectations
     print("🚀 Starting Mock Matcha Backend Server...")
     print("📁 Upload folder:", os.path.abspath(UPLOAD_FOLDER))
     print("🌐 CORS enabled for http://localhost:3000")

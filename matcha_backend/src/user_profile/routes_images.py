@@ -23,7 +23,7 @@ def upload_images():
             return jsonify({"error": "No files uploaded or field name must be 'images'"}), 400
 
         files = request.files.getlist('images')
-        if not files:
+        if not files or all(f.filename == '' for f in files):
             return jsonify({"error": "No files uploaded"}), 400
 
         pool = current_app.config.get("CONNECTION_POOL")
@@ -41,14 +41,20 @@ def upload_images():
 
         image_urls = []
         for f in files:
-            stored = upload_pictures(f, g.user_id, is_profile_picture=False)
-            url_path = url_for('static', filename=stored)
-            profile.insert_images(url_path, g.user_id)
-            image_urls.append(url_path)
+            if f and f.filename != '':
+                stored = upload_pictures(f, g.user_id, is_profile_picture=False)
+                url_path = url_for('static', filename=stored)
+                profile.insert_images(url_path, g.user_id)
+                image_urls.append(url_path)
         
+        if not image_urls:
+            return jsonify({"error": "No valid images were processed"}), 400
+            
         # If this is the user's first photo, set it as profile picture
-        if current_count == 0 and image_urls:
+        current_profile = profile.get_profile_by_user_id(g.user_id)
+        if current_count == 0 and image_urls and (not current_profile or not current_profile.get("profile_picture")):
             profile.update_profile(g.user_id, {"profile_picture": image_urls[0]})
+            logger.info(f"Set first image as profile picture: {image_urls[0]}")
 
         return jsonify({"status": "ok", "image_paths": image_urls}), 200
     except Exception as e:
