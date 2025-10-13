@@ -28,7 +28,7 @@ const MyProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  // Removed unused refreshing state
   const [stats, setStats] = useState({
     views: 0,
     likes: 0,
@@ -114,7 +114,29 @@ const MyProfilePage = () => {
       
     } catch (err) {
       console.error("Error in fetchMyProfile:", err);
-      setError(err.message);
+      
+      let errorMessage = "Failed to load profile";
+      
+      // Check for specific network/connection errors
+      if (err.name === 'NetworkError' || err.name === 'TypeError' || 
+          err.message.includes('fetch') || err.message.includes('Failed to fetch') ||
+          err.message.includes('Network request failed') || 
+          err.message.includes('ERR_CONNECTION_REFUSED')) {
+        errorMessage = "❌ Backend server is not running. Please start the server or check your connection.";
+      } else if (err.message.includes("HTTP 401") || err.message.includes("HTTP 403")) {
+        errorMessage = "❌ Authentication expired. Please log in again.";
+        // Clear token and redirect to login
+        localStorage.removeItem("access_token");
+        setTimeout(() => navigate("/signin", { replace: true }), 2000);
+      } else if (err.message.includes("HTTP 404")) {
+        errorMessage = "❌ Profile endpoint not found. Backend may need updating.";
+      } else if (err.message.includes("HTTP 500")) {
+        errorMessage = "❌ Server error. Please try again later.";
+      } else {
+        errorMessage = `❌ ${err.message}`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -268,30 +290,9 @@ const MyProfilePage = () => {
     }
   }, [navigate]);
 
-  // Refresh function for manual updates
-  const refreshProfile = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchMyProfile(), fetchStats()]);
-    setRefreshing(false);
-  }, [fetchMyProfile, fetchStats]);
+  // Removed manual refresh function - no longer needed
 
-  // Listen for focus events to refresh data when user returns
-  useEffect(() => {
-    const handleFocus = () => {
-      // Only refresh if we have a profile and it's been more than 30 seconds
-      if (profile && document.visibilityState === 'visible') {
-        refreshProfile();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleFocus);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleFocus);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [profile, refreshProfile]);
+  // Removed auto-refresh on focus to prevent unnecessary requests
 
   const calculateAge = (birthdate) => {
     if (!birthdate) return profile.age || "N/A";
@@ -315,11 +316,39 @@ const MyProfilePage = () => {
   }
 
   if (error) {
+    const isBackendDown = error.includes("Backend server is not running") || error.includes("connection");
+    const isAuthError = error.includes("Authentication expired") || error.includes("log in again");
+    
     return (
       <div className="my-profile-error">
-        <h2>Oops!</h2>
+        <h2>⚠️ Unable to Load Profile</h2>
         <p>{error}</p>
-        <button onClick={() => navigate("/dashboard")}>Back to Dashboard</button>
+        
+        {isBackendDown && (
+          <div className="error-help">
+            <p><strong>To fix this:</strong></p>
+            <ol>
+              <li>Open a terminal in the backend folder</li>
+              <li>Run: <code>python3 app.py</code></li>
+              <li>Wait for "Running on http://localhost:5000"</li>
+              <li>Refresh this page</li>
+            </ol>
+          </div>
+        )}
+        
+        {isAuthError && (
+          <div className="error-help">
+            <p>You'll be redirected to login shortly...</p>
+          </div>
+        )}
+        
+        <div className="error-actions">
+          <button onClick={() => window.location.reload()}>🔄 Retry</button>
+          <button onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
+          {!isAuthError && (
+            <button onClick={() => navigate("/signin")}>🔑 Login</button>
+          )}
+        </div>
       </div>
     );
   }
@@ -333,11 +362,23 @@ const MyProfilePage = () => {
     );
   }
 
-  // Build images array with fallback
-  const allImages = [
-    profile?.profile_picture,
-    ...(profile?.images || [])
-  ].filter(Boolean);
+  // Build unique images array - prioritize profile_picture, then additional images
+  const profilePicture = profile?.profile_picture;
+  
+  // Remove duplicates from images array and exclude profile picture
+  const uniqueAdditionalImages = [...new Set(profile?.images || [])]
+    .filter(img => img && img !== profilePicture);
+  
+  // Combine: profile picture first, then unique additional images (no duplicates)
+  const allImages = [profilePicture, ...uniqueAdditionalImages].filter(Boolean);
+  
+  // Debug logging to help troubleshoot photo issues
+  if (profile?.images) {
+    console.log("Raw profile images:", profile.images);
+    console.log("Profile picture:", profilePicture);
+    console.log("Unique additional images:", uniqueAdditionalImages);
+    console.log("Final allImages:", allImages);
+  }
 
   const displayName = profile?.first_name && profile?.last_name 
     ? `${profile.first_name} ${profile.last_name}` 
@@ -365,16 +406,30 @@ const MyProfilePage = () => {
       const formData = new FormData();
       files.forEach((file) => formData.append("images", file));
       
-      const response = await fetchWithAuth("http://localhost:5000/api/profile/upload_images", {
+      const response = await fetch("http://localhost:5000/api/profile/upload_images", {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access_token")}`
+        },
+        credentials: "include",
         body: formData,
       });
       
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Failed to upload photos");
+      if (!response.ok) throw new Error(data?.error || `Server error: ${response.status}`);
       
-      // Refresh profile to get updated images
-      await fetchMyProfile();
+      // Update local state immediately for better UX
+      if (data.image_paths) {
+        setProfile(prev => {
+          if (!prev) return prev;
+          const newImages = [...(prev.images || []), ...data.image_paths];
+          return {
+            ...prev,
+            images: newImages,
+            profile_picture: prev.profile_picture || data.image_paths[0] // Set first uploaded as profile pic if none exists
+          };
+        });
+      }
       
       setUploadStatus(`✅ Successfully uploaded ${files.length} photo${files.length > 1 ? 's' : ''}!`);
       setTimeout(() => setUploadStatus(null), 3000);
@@ -384,8 +439,46 @@ const MyProfilePage = () => {
       
     } catch (error) {
       console.error("Photo upload error:", error);
-      setUploadStatus(`❌ Failed to upload photos: ${error.message}`);
-      setTimeout(() => setUploadStatus(null), 5000);
+      
+      let errorMessage = "❌ Failed to upload photos";
+      
+      // Check different types of network/connection errors
+      if (error.name === 'NetworkError' || error.name === 'TypeError' || 
+          error.message.includes('fetch') || error.message.includes('Failed to fetch') ||
+          error.message.includes('Network request failed') || 
+          error.message.includes('ERR_CONNECTION_REFUSED')) {
+        
+        // Try to ping the backend to see if it's running
+        try {
+          const pingResponse = await fetch("http://localhost:5000/api/profile/my_profile", {
+            method: "HEAD",
+            signal: AbortSignal.timeout(3000) // 3 second timeout
+          }).catch(() => null);
+          
+          if (!pingResponse) {
+            errorMessage = "❌ Backend server is not running. Please start the server first.";
+          } else if (pingResponse.status === 403 || pingResponse.status === 401) {
+            errorMessage = "❌ Authentication error. Please log in again.";
+          } else {
+            errorMessage = "❌ Connection error. Check your network and try again.";
+          }
+        } catch (pingError) {
+          errorMessage = "❌ Backend server is not running. Please start the server first.";
+        }
+      } else if (error.message.includes("Server error: 500")) {
+        errorMessage = "❌ Server error. Please try again or contact support.";
+      } else if (error.message.includes("Server error: 413")) {
+        errorMessage = "❌ Files too large. Please use smaller images (max 5MB each).";
+      } else if (error.message.includes("Server error: 403")) {
+        errorMessage = "❌ Permission denied. Please log in again.";
+      } else if (error.message.includes("Server error: 404")) {
+        errorMessage = "❌ Upload endpoint not found. Backend may need updating.";
+      } else {
+        errorMessage = `❌ Upload failed: ${error.message}`;
+      }
+      
+      setUploadStatus(errorMessage);
+      setTimeout(() => setUploadStatus(null), 8000); // Longer timeout for detailed messages
     } finally {
       setUploadingPhotos(false);
     }
@@ -401,95 +494,154 @@ const MyProfilePage = () => {
     try {
       setUploadStatus("🗑️ Deleting photo...");
       
-      const response = await fetchWithAuth("http://localhost:5000/api/profile/delete_image", {
+      // Try the delete API call with better error handling
+      const response = await fetch("http://localhost:5000/api/profile/delete_image", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("access_token")}`
         },
+        credentials: "include",
         body: JSON.stringify({ image_path: photoPath }),
       });
       
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || "Failed to delete photo");
+        throw new Error(data?.error || `Server error: ${response.status}`);
       }
       
-      // Refresh profile to get updated images
-      await fetchMyProfile();
+      // Update local state immediately for better UX
+      setProfile(prev => {
+        if (!prev) return prev;
+        const updatedImages = (prev.images || []).filter(img => img !== photoPath);
+        const updatedProfilePic = prev.profile_picture === photoPath ? null : prev.profile_picture;
+        return {
+          ...prev,
+          images: updatedImages,
+          profile_picture: updatedProfilePic
+        };
+      });
       
       setUploadStatus("✅ Photo deleted successfully!");
       setTimeout(() => setUploadStatus(null), 3000);
       
     } catch (error) {
       console.error("Photo delete error:", error);
-      setUploadStatus(`❌ Failed to delete photo: ${error.message}`);
-      setTimeout(() => setUploadStatus(null), 5000);
+      
+      let errorMessage = "❌ Failed to delete photo";
+      
+      if (error.name === 'NetworkError' || error.name === 'TypeError' || 
+          error.message.includes('fetch') || error.message.includes('Failed to fetch') ||
+          error.message.includes('Network request failed') || 
+          error.message.includes('ERR_CONNECTION_REFUSED')) {
+        errorMessage = "❌ Backend server is not running. Cannot delete photo.";
+      } else if (error.message.includes("Server error: 403")) {
+        errorMessage = "❌ Permission denied. Please log in again.";
+      } else if (error.message.includes("Server error: 404")) {
+        errorMessage = "❌ Photo not found on server. It may already be deleted.";
+      } else if (error.message.includes("Server error: 500")) {
+        errorMessage = "❌ Server error during deletion. Please try again.";
+      } else {
+        errorMessage = `❌ Delete failed: ${error.message}`;
+      }
+      
+      setUploadStatus(errorMessage);
+      setTimeout(() => setUploadStatus(null), 6000);
     }
   };
 
   return (
-    <div className="dashboard-container">
+    <div className="modern-profile-container">
       {/* Enhanced Profile Header */}
-      <div className="profile-header">
-        <div 
-          className="profile-pic"
-          onClick={() => navigate("/settings")}
-          style={{ cursor: "pointer" }}
-        >
-          <img 
-            src={allImages.length > 0 ? toAbsoluteUrl(allImages[0]) : FALLBACK_AVATAR} 
-            alt="Profile" 
-            onError={onImgError} 
-          />
-          <span className="profile-label">Profile</span>
+      <div className="modern-profile-header">
+        <div className="header-background">
+          <div className="gradient-overlay"></div>
         </div>
-        <h1 className="welcome-text">Welcome back, {displayName}!</h1>
-        <p className="fame-rating">Fame rating: {profile?.fame_rating || 5}</p>
         
-        <div className="header-actions">
-          <button 
-            className="refresh-btn-header" 
-            onClick={refreshProfile}
-            disabled={refreshing}
-            title="Refresh profile data"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2"
-              className={refreshing ? 'spinning' : ''}
+        <div className="profile-header-content">
+          <div className="profile-avatar-section">
+            <div 
+              className="profile-avatar"
+              onClick={() => navigate("/settings")}
             >
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-            </svg>
-            {refreshing ? 'Updating...' : 'Refresh'}
-          </button>
-          <button className="edit-btn-header" onClick={() => navigate("/settings")}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            Edit Profile
-          </button>
+              <img 
+                src={allImages.length > 0 ? toAbsoluteUrl(allImages[0]) : FALLBACK_AVATAR} 
+                alt="Profile" 
+                onError={onImgError} 
+              />
+              <div className="avatar-overlay">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </div>
+            </div>
+            
+            <div className="profile-info-header">
+              <h1 className="profile-name">{displayName}</h1>
+              <div className="profile-meta">
+                {profile?.age && (
+                  <span className="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                    </svg>
+                    {calculateAge(profile.birthdate)} years old
+                  </span>
+                )}
+                {(profile?.city || profile?.country) && (
+                  <span className="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                    </svg>
+                    {profile?.city || 'Unknown'}, {profile?.country || 'Unknown'}
+                  </span>
+                )}
+              </div>
+              <div className="fame-badge">
+                <span className="fame-star">⭐</span>
+                <span className="fame-value">{profile?.fame_rating || 0}</span>
+                <span className="fame-label">Fame Rating</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="profile-actions">
+            <button 
+              className="action-btn primary" 
+              onClick={() => navigate("/settings")}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Edit Profile
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-container">
-        <div className="stat-card">
-          <h3>Profile Views</h3>
-          <p className="stat-number">{stats.views}</p>
+      {/* Modern Stats Cards */}
+      <div className="modern-stats-container">
+        <div className="modern-stat-card">
+          <div className="stat-icon">👁️</div>
+          <div className="stat-content">
+            <span className="stat-number">{stats.views}</span>
+            <span className="stat-label">Profile Views</span>
+          </div>
         </div>
-        <div className="stat-card">
-          <h3>Likes Received</h3>
-          <p className="stat-number">{stats.likes}</p>
+        <div className="modern-stat-card">
+          <div className="stat-icon">💖</div>
+          <div className="stat-content">
+            <span className="stat-number">{stats.likes}</span>
+            <span className="stat-label">Likes Received</span>
+          </div>
         </div>
-        <div className="stat-card">
-          <h3>Matches</h3>
-          <p className="stat-number">{stats.matches}</p>
+        <div className="modern-stat-card">
+          <div className="stat-icon">✨</div>
+          <div className="stat-content">
+            <span className="stat-number">{stats.matches}</span>
+            <span className="stat-label">Matches</span>
+          </div>
         </div>
       </div>
 
@@ -565,7 +717,7 @@ const MyProfilePage = () => {
                   <div key={index} className="photo-item">
                     <img 
                       src={toAbsoluteUrl(img)} 
-                      alt={`Photo ${index + 1}`}
+                      alt={`Upload ${index + 1}`}
                       onError={onImgError}
                     />
                     <div className="photo-overlay">

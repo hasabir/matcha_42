@@ -36,6 +36,11 @@ function App() {
       setAuthChecked(true);
     };
     checkAuth();
+
+    // Load debug utilities in development
+    if (process.env.NODE_ENV === 'development') {
+      import('./utils/debugAuth').catch(err => console.log('Debug utilities not available:', err));
+    }
   }, []);
 
   // Show nothing until we've checked auth status
