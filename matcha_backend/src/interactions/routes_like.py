@@ -5,6 +5,7 @@ import logging
 from flask import Blueprint, flash, request, jsonify, current_app, g, send_file, url_for
 from werkzeug.exceptions import BadRequestKeyError
 
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 
 from database.crud.matching_operations_crud import Matching
@@ -18,6 +19,7 @@ from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
 from utils.manage_interactions import ManageInteractions
 from utils.image_handler import upload_pictures
+from utils.notification_service import NotificationService
 from src.interactions import interactions_bp
 
 
@@ -65,12 +67,24 @@ def like_dislike():
         interactions_crud = Interactions(connection_pool, g.user_id, liked_user_data["id"])
         manage_interactions = ManageInteractions(connection_pool, interactions_crud)
         action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
+        notification_service = NotificationService(connection_pool)
+
         if action == "like":
             interactions_crud.like_user()
+            notification_service.create_notification(
+                user_id=liked_user_data["id"],
+                notification_type="like",
+                reference_id=g.user_id,
+            )
             new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='like')
             profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
 
         elif action == "dislike":
+            notification_service.create_notification(
+                user_id=liked_user_data["id"],
+                notification_type="like",
+                reference_id=g.user_id,
+            )
             interactions_crud.dislike_user()
             new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='dislike')
             profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
@@ -146,7 +160,14 @@ def is_matched():
         is_matched = matched_users_ids and other_user_data["id"] in matched_users_ids
         
         manage_interactions = ManageInteractions(connection_pool, None)
-        test = manage_interactions.connect_users(g.user_id, other_user_data["id"])
-        return jsonify({"result": is_matched, "test": test}), 200
+        manage_interactions.connect_users(g.user_id, other_user_data["id"])
+        notification_service = NotificationService(connection_pool)
+        
+        notification_service.create_notification(
+                user_id=other_user_data["id"],
+                notification_type="like",
+                reference_id=g.user_id,
+            )
+        return jsonify({"result": is_matched}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400

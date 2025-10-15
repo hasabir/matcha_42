@@ -87,7 +87,7 @@ class NotificationService:
             redis_manager.delete_cached_unread_count(user_id)
             print(f"✅ Notification {notification_id} marked as seen for user {user_id}")
             
-            # return result
+            return result
             
         except Exception as e:
             print(f"❌ Error marking notification as seen: {e}")

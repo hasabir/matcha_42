@@ -69,6 +69,7 @@ def get_unread_count():
         logging.error(f"Error fetching unread count: {e}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+logger = logging.getLogger(__name__)
 @notifications_bp.route('/<int:notification_id>/mark_seen', methods=['PUT'])
 @auth_guard
 def mark_notification_seen(notification_id):
@@ -80,6 +81,7 @@ def mark_notification_seen(notification_id):
         notification_service = NotificationService(connection_pool)
         #only mark as seen if belongs to user
         if not notification_service.does_notification_exist(notification_id, user_id):
+            logger.info(f"❌❌❌👤👤👤Notification {notification_id} not found or access denied for user {user_id}")
             return jsonify({
                 'success': False,
                 'error': 'Notification not found or access denied'
@@ -88,8 +90,8 @@ def mark_notification_seen(notification_id):
             notification_id=notification_id,
             user_id=user_id 
         )
-        
-        if result:
+        logger.info(f"✅✅✅👤👤👤✅✅✅Marked notification {notification_id},, result = {result}")
+        if result is not None and result > 0:
             return jsonify({
                 'success': True,
                 'message': 'Notification marked as seen'

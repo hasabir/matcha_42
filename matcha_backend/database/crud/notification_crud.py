@@ -32,10 +32,12 @@ class Notification(DBManager):
     def mark_as_seen(self, notification_id=None, user_id=None):
         """Mark notifications as seen - can mark specific notification or all for user"""
         try:
-            self.update('notifications',
+            result = self.update('notifications',
                 {'seen': True},
                 where="user_id = %s AND notification_id = %s AND seen = FALSE",
                 where_params=(user_id, notification_id))
+            logger.info(f"✅✅✅👤👤👤Marked notification {notification_id} as seen for user {user_id} result {result}")
+            return result
         except Exception as e:
             raise Exception(e)
 

@@ -20,15 +20,15 @@ WS_URL = "http://localhost:5000"    # Update with your WebSocket URL
 USERS = {
     "test1": {
         "user_id": 1,
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3NjAyMjYyODMsInR5cGUiOiJhY2Nlc3MifQ.DQNWz05v49QeeulbuXeiDuYwtl_xf-EP-9qFSX0LzFg"
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3NjA1MjAxOTksInR5cGUiOiJhY2Nlc3MifQ.9PrmOVWKgaOlxgbLMEx_7fb29OBNAQNElEul8OlmJA0"
     },
     "test2": {
         "user_id": 2,
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJleHAiOjE3NjAyMjI2NjMsInR5cGUiOiJhY2Nlc3MifQ.0Ht-MLGtNJqeiej2fhW02OaXBRjC5YbALSLdPXmA2hw"
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJleHAiOjE3NjA1MjAyMTksInR5cGUiOiJhY2Nlc3MifQ.SBEhb9RfaoFW-gWQDuY-jlKBbgLH8oVUDzbHPiYO91k"
     },
     "test3": {
         "user_id": 2,  # Note: Same user_id as test2
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJleHAiOjE3NjAyMjI2NjMsInR5cGUiOiJhY2Nlc3MifQ.0Ht-MLGtNJqeiej2fhW02OaXBRjC5YbALSLdPXmA2hw"
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJleHAiOjE3NjA1MjAyMTksInR5cGUiOiJhY2Nlc3MifQ.SBEhb9RfaoFW-gWQDuY-jlKBbgLH8oVUDzbHPiYO91k"
         # "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjozLCJleHAiOjE3NjAyMTk0MTYsInR5cGUiOiJhY2Nlc3MifQ.ltR0pHbI35Ybr_q-vYzqJfaaNnOG7fKWrvroQYlNMEk"
     }
 }
