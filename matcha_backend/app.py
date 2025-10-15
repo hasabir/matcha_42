@@ -19,6 +19,7 @@ from src.search import search_bp
 from src.interactions import interactions_bp
 from src.chat import chat_bp
 from src.notifications import notifications_bp
+from src.chat.events_chat import register_chat_events
 from docs import docs_bp
 from flask_socketio import SocketIO
 from utils.redis_manager import redis_manager
@@ -66,6 +67,7 @@ if __name__ == '__main__':
     
     # Register socket events
     register_socket_events(socketio)
+    register_chat_events(socketio)
     
     # Enable CORS
     CORS(app, 

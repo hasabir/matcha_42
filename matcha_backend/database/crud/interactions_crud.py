@@ -55,6 +55,8 @@ class Interactions(DBManager):
                              where='liker_id = %s AND liked_id = %s',
                              where_params=(self.other_user_id, self.user_id))
         return bool(result)
+
+    
     
     def is_blocked(self):
         result = self.select('blocks', columns='blocker_id',

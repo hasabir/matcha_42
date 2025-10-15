@@ -67,38 +67,6 @@ def register_socket_events(socketio):
             return False
 
 
-
-    # @auth_guard
-    # @socketio.on('connect')
-    # def handle_connect():
-    #     try:
-    #         # Get user_id from query parameters
-    #         user_id = int(request.args['user_id'])
-    #         logger.debug(f"👉👉👉👉SocketIO connect event: {int(request.args['user_id'])}")
-    #         if user_id:
-    #             room = f'user_{user_id}'
-    #             join_room(room)
-                
-    #             # Store user-socket mapping in Redis
-    #             redis_manager.store_user_session(user_id, request.sid)
-                
-    #             # Send current unread count
-    #             connection_pool = current_app.config["CONNECTION_POOL"]
-    #             notification_service = NotificationService(connection_pool)
-    #             unread_count = notification_service.get_unread_count(user_id)
-                
-    #             emit('unread_count', {'count': unread_count}, room=request.sid)
-    #             # Join a room for this specific user
-    #             # join_room(f"user_{user_id}")
-    #             # print(f'User {user_id} connected with SID: {request.sid}')
-    #             emit('connected', {'message': f'User {user_id} connected successfully'})
-    #         else:
-    #             emit('error', {'message': 'No user_id provided'})
-    #     except Exception as e:
-    #         logging.error(f"Connection error: {e}")
-    #         emit('error', {'message': 'Connection failed'})
-
-
     @socketio.on('disconnect')
     def handle_disconnect():
         """Handle client disconnection"""
@@ -148,6 +116,8 @@ def register_socket_events(socketio):
         except Exception as e:
             logging.error(f"Error joining notifications room: {e}")
             emit('error', {'message': 'Failed to join notifications'})
+
+    
 
     # @socketio.on('leave_notifications')
     # def handle_leave_notifications(data):

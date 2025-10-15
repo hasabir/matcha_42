@@ -4,6 +4,7 @@ import logging
 
 from flask import Blueprint, flash, request, jsonify, current_app, g, send_file, url_for
 from werkzeug.exceptions import BadRequestKeyError
+from flask_socketio import emit, join_room, leave_room
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
@@ -33,10 +34,12 @@ def like_dislike():
     '''
     try:
         requested_data = request.json
+        # Ensure the request contains the 'liked_user' key
         if "liked_user" not in requested_data:
             return jsonify({"error": "Key error: request must include 'liked_user' with the liked user's username"}), 400
         
         connection_pool = current_app.config["CONNECTION_POOL"]
+        # Check if the database connection pool is available
         if not connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
 
@@ -49,12 +52,12 @@ def like_dislike():
         
         user_crud = User(connection_pool)
         
-        # Ensure the acting user is not trying to like/dislike themselves
+        # Prevent users from liking/disliking themselves
         username = user_crud.get_user_by('id', g.user_id, 'username')
         if requested_data["liked_user"] == username:
             return jsonify({"error": "You cannot like or dislike yourself"}), 409
         
-        # Check if the liked user exists
+        # Check if the liked user exists in the database
         liked_user_data = user_crud.get_user_by_username(username=requested_data["liked_user"])
         if not liked_user_data:
             return jsonify({"error": "liked user does not exist"}), 409
@@ -64,34 +67,60 @@ def like_dislike():
         if not liked_user_profile:
             return jsonify({"error": "The user you are trying to like/dislike does not have a profile"}), 409
         
+        # Initialize interaction and notification services
         interactions_crud = Interactions(connection_pool, g.user_id, liked_user_data["id"])
         manage_interactions = ManageInteractions(connection_pool, interactions_crud)
+        # Determine the action (like, dislike, or match)
         action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
         notification_service = NotificationService(connection_pool)
 
         if action == "like" or action == "match":
+            # Register the like and send notification (like or match)
             interactions_crud.like_user()
             notification_service.create_notification(
                 user_id=liked_user_data["id"],
                 notification_type="like" if action == "like" else "match",
                 reference_id=g.user_id,
             )
+            # Update the liked user's fame rating
             new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='like')
             profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
+            # Create chat room for matched users
+            if action == "match":
+                room = f"chat_{min(g.user_id, liked_user_data["id"])}_{max(g.user_id, liked_user_data['id'])}"
+                join_room(room)
+                emit("room_joined",
+                     {"room": room,
+                     "users": [username, liked_user_data["username"]]},
+                    room=room)
 
         elif action == "dislike":
+            # Send dislike notification and register the dislike
             notification_service.create_notification(
                 user_id=liked_user_data["id"],
                 notification_type="dislike",
                 reference_id=g.user_id,
             )
             interactions_crud.dislike_user()
+            # Update the liked user's fame rating
             new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='dislike')
             profile_crud.update_fame_rating(liked_user_data["id"], new_rating)
+            # room = f"chat_{min(g.user_id, liked_user_data["id"])}_{max(g.user_id, liked_user_data['id'])}"
+            # leave_room(room)
+            # emit("room_leaved",
+            #      {
+            #          "room": room,
+            #          "users": [username, liked_user_data["username"]]
+            #      },
+            #      room=room 
+            #     )
+
+        # Return success response with the action and new fame rating
         return jsonify({"status": "ok",
-                        "message": f"user has {action} {requested_data["liked_user"]}",
+                        "message": f"user has {action} {requested_data['liked_user']}",
                         "new_fame_rating": new_rating}), 201
     except Exception as e:
+        # Handle unexpected errors
         return jsonify({"error": e}), 400
 
 

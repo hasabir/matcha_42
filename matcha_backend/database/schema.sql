@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS messages (
     conversation_id INT REFERENCES conversations(conversation_id) ON DELETE CASCADE,  
     sender_id INT REFERENCES users(id) ON DELETE CASCADE,  
     message_text TEXT NOT NULL,
-    status BOOLEAN DEFAULT FALSE,  -- Consider renaming to "is_read" for clarity
+    -- status BOOLEAN DEFAULT FALSE,  -- Consider renaming to "is_read" for clarity
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
