@@ -218,8 +218,10 @@ def register_socket_events(socketio):
     def handle_disconnect():
         """Handle user disconnect"""
         try:
-            # Clean up Redis session
-            # You'll need to implement a reverse lookup or store user_id in session
+            #?
+            #? Clean up Redis session
+            #? redis_manager.delete_session_by_sid(request.sid)
+            
             logger.info(f"Client disconnected: {request.sid}")
         except Exception as e:
             logger.error(f"❌ Error during disconnect: {e}")

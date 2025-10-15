@@ -230,8 +230,25 @@ def login():
 
 
 @auth_bp.route('/logout', methods=['POST'])
+@auth_guard
 def logout():
-    ...
+    try:
+        response = jsonify({"status": "ok", "message": "Logged out successfully"})
+        response.set_cookie('refresh_token', '', expires=0)
+        
+        connection_pool = current_app.config["CONNECTION_POOL"]
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        user_crud = User(connection_pool)
+        user_crud.update_user(
+                        {"active": False,
+                         "last_seen": datetime.datetime.utcnow()},
+                        g.username)
+        return response
+    except Exception as e:
+        logging.error(f"Error during logout: {e}")
+        return jsonify({"error": str(e), "message": "Logout failed"}), 400
 
 @auth_bp.route('/delete_user', methods=['DELETE'])
 @auth_guard
