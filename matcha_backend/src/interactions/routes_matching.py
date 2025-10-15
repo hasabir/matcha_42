@@ -17,7 +17,7 @@ from utils.fame_rating import calculate_fame_rating
 from utils.manage_interactions import ManageInteractions
 from utils.image_handler import upload_pictures
 from src.interactions import interactions_bp
-
+from utils.matching_algo import matching_suggestions
 
 
 
@@ -28,14 +28,17 @@ logger = logging.getLogger(__name__)
 @auth_guard
 def get_matching_suggestions():
     '''Get matched users for the authenticated user.'''
-    try:
-        cnnection_pool = current_app.config["CONNECTION_POOL"]
-        if not  cnnection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        matching_curd = Matching(cnnection_pool)
-        matched_users = matching_curd.get_matched_users(g.user_id)
-        return jsonify({"matched_users": matched_users}), 200
+    # try:
+    connection_pool = current_app.config["CONNECTION_POOL"]
+    if not  connection_pool:
+        return jsonify({"error": "Database connection pool is not available"}), 500
+    # matching_curd = Matching(connection_pool)
+    # matched_users = matching_curd.get_matched_users(g.user_id)#?
+    matching_suggestions_list = matching_suggestions(connection_pool, g.user_id)
+    # matched_users = []  # Placeholder for matched users list
+    
+    return jsonify({"matching suggestions list": matching_suggestions_list}), 200
 
-    except Exception as e:
-        logger.error(f"Error in /get_matched_users endpoint: {e}")
-        return jsonify({"error": str(e)}), 400
+    # except Exception as e:
+    #     logger.error(f"Error in /get_matched_users endpoint: {e}")
+    #     return jsonify({"error": str(e)}), 400

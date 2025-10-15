@@ -76,7 +76,7 @@ class Profile(DBManager):
             return []
 
         
-        name_results = self.select('tags', "tag_name", where="tag_id", in_params=(tag_ids,))
+        name_results = self.select('tags', "tag_name", where="tag_id", in_params=tuple(tag_ids))
         logger.debug(f"👉👉👉👉{name_results}👈👈👈👈 ")
         # if name_results is None:
         #     return []

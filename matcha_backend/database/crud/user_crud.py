@@ -52,6 +52,8 @@ class User(DBManager):
         result = self.select('users', columns, where=where_clause, where_params=(field,))
         return result[0] if result else None
     
+    # def get_all_users_except_
+    
     
     
     

@@ -21,7 +21,7 @@ def get_chat_room(user_id_1, user_id_2):
     return f'chat_{min(user_id_1, user_id_2)}_{max(user_id_1, user_id_2)}'
 
 
-def register_socket_events(socketio):
+def register_chat_events(socketio):
     """Register all Socket.IO event handlers"""
     
     @socketio.on('connect')

@@ -23,12 +23,12 @@
     --> variables:
         * sexual_preferences
 
-        -> match based on
-            * locationd
-            * A maximum of common tags
-            * fame rating
+        [] -> match based on
+                * locationd
+                * A maximum of common tags
+                * fame rating
 
-        -> sort_by / filter_by
+        [x] -> sort_by / filter_by
             * age - gender -
             * mutual likes
             * mutual dislikes
