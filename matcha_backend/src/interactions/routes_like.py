@@ -69,11 +69,11 @@ def like_dislike():
         action = manage_interactions.check_action(g.user_id, liked_user_data["id"])
         notification_service = NotificationService(connection_pool)
 
-        if action == "like":
+        if action == "like" or action == "match":
             interactions_crud.like_user()
             notification_service.create_notification(
                 user_id=liked_user_data["id"],
-                notification_type="like",
+                notification_type="like" if action == "like" else "match",
                 reference_id=g.user_id,
             )
             new_rating = calculate_fame_rating(liked_user_profile['fame_rating'], type='like')
@@ -82,7 +82,7 @@ def like_dislike():
         elif action == "dislike":
             notification_service.create_notification(
                 user_id=liked_user_data["id"],
-                notification_type="like",
+                notification_type="dislike",
                 reference_id=g.user_id,
             )
             interactions_crud.dislike_user()
@@ -161,13 +161,7 @@ def is_matched():
         
         manage_interactions = ManageInteractions(connection_pool, None)
         manage_interactions.connect_users(g.user_id, other_user_data["id"])
-        notification_service = NotificationService(connection_pool)
-        
-        notification_service.create_notification(
-                user_id=other_user_data["id"],
-                notification_type="like",
-                reference_id=g.user_id,
-            )
+
         return jsonify({"result": is_matched}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400

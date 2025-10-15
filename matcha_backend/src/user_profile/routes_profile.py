@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 import logging
 from utils.security import auth_guard
 from utils.fame_rating import calculate_fame_rating
+from utils.notification_service import NotificationService
 from  database.crud.profile_crud import Profile
 from utils.image_handler import upload_pictures
 from werkzeug.exceptions import BadRequestKeyError
@@ -123,11 +124,16 @@ def get_profile(username):
             
         if interactions_crud.is_blocked():
             return jsonify({"error": "You are blocked by this user"}), 403
+        notification_service = NotificationService(connection_pool)
         
+        notification_service.create_notification(
+                user_id=user_data["id"],
+                notification_type="visit",
+                reference_id=g.user_id,
+            )
         profile_data = get_profile_data(connection_pool, user_data["id"])
         
         #set profile visit
-        #TODO notify other user of visit
         last_visit = profile_crud.check_last_visit(g.user_id, user_data["id"])
         hours_passed = houres_between_dates(last_visit) if last_visit else None
         
