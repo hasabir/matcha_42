@@ -21,6 +21,20 @@ services:
       start_period: 30s
       timeout: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   web:
     build:
       context: ../../../matcha_backend
@@ -33,9 +47,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
     env_file:
       - .env
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
 
   pgadmin:
     image: dpage/pgadmin4
@@ -56,3 +74,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  redis_data:

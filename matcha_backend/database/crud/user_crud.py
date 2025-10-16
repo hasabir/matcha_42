@@ -26,9 +26,9 @@ class User(DBManager):
         logging.debug(f"****************************Updating user set_data: {set_data}")
         return self.update('users', set_data, where="username = %s", where_params=(username,))
 
-    # def delete_user(self, user_id):
-    #     """Delete a user by ID"""
-    #     return self.delete('users', where='id = %s', where_params=(user_id,))
+    def delete_user(self, user_id):
+        """Delete a user by ID"""
+        return self.delete('users', where='id = %s', where_params=(user_id,))
 
 
     def get_user_by_username(self, username, user_id=None):
@@ -51,6 +51,8 @@ class User(DBManager):
         where_clause = f"{select_type} = %s"
         result = self.select('users', columns, where=where_clause, where_params=(field,))
         return result[0] if result else None
+    
+    # def get_all_users_except_
     
     
     

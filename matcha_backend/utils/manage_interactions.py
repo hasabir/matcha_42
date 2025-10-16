@@ -17,6 +17,7 @@ class ManageInteractions():
             if self.interactions_crud.is_liked_by():
                 matching_crud = Matching(self.connection_pool)
                 matching_crud.matche(user_id, liked_id)
+                return "match"
             return "like"
         matching_crud = Matching(self.connection_pool)
         matched_users_ids = matching_crud.get_matched_users(user_id)

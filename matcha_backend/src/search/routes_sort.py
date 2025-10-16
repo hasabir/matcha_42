@@ -5,7 +5,7 @@ from src.search import search_bp
 import sys
 import os
 
-from utils import validate_sort_data
+from utils.validate_sort_data import validate_sort_data
 from utils.validate_search_data import validate_search_data
 from utils.validate_profile_data import validate_profile_data
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
@@ -32,6 +32,7 @@ def sort_users():
             return jsonify({"error": "Invalid JSON data"}), 400
 
         valide_request = validate_sort_data(request_data)
+        
         if not valide_request[0]:
             return jsonify({"error": valide_request[1]}), 400
         
@@ -40,12 +41,19 @@ def sort_users():
         if not  cnnection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         search_curd = Search(cnnection_pool)
-        profiles = search_curd.sort_users(request_data["usernames"], request_data["sort_by"],\
-            request_data["order"], g.user_id, request_data.get("max_distance_km", 100) if request_data["sort_by"] == "location" else None)
+        max_distance_km = request_data.get("max_distance_km", 100) if request_data["sort_by"] == "location" else None
+        logger.debug(f"⚠️⚠️Max Distance (km): {max_distance_km}")
         
+        # profiles = search_curd.sort_users(usernames_list=request_data["usernames"],\
+        #     sort_by=request_data["sort_by"],\
+        #     order=request_data["order"],\
+        #     user_id=g.user_id,\
+        #     max_distance_km=max_distance_km)
+        
+        profiles = search_curd.sort_users(request_data=request_data, user_id=g.user_id)
         
         return jsonify({"profiles": profiles}), 200
 
     except Exception as e:
         logger.error(f"Error in /sort endpoint: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": e}), 400

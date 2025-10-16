@@ -1,68 +1,64 @@
+"""
+Profile data validation utilities
+"""
+import re
+from datetime import datetime
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-def validate_profile_data(request_data):
-    """Validate profile creation data with detailed error messages"""
+def validate_profile_data(data, required_fields=None):
+    """
+    Validate profile data
     
-    logger.debug(f"⚠️⚠️⚠️ request data -> {request_data} ⚠️⚠️⚠️")
-    # Define required fields with validation rules
-    required_fields = {
-        'bio': {'min_length': 0, 'max_length': 500},
-        'gender': {'allowed_values': ['Male', 'Female', 'Non-binary', 'Other']},
-        'age': {'min_value': 18, 'max_value': 120},
-        # 'location': {'min_length': 2, 'max_length': 100},
-        # 'profile_picture': {'type': 'text'}, 
-        'sexual_preferences': {'allowed_values': ['Men', 'Women', 'Both', 'All']}
-    }
+    Args:
+        data: Dictionary containing profile data to validate
+        required_fields: List of required field names (optional)
     
+    Returns:
+        tuple: (is_valid, error_message)
     
-    # errors = "there is no error for the moment"
-    errors = []
-    # Check for missing fields
-    missing_fields = [field for field in required_fields if field not in request_data or not request_data[field]]
-    if missing_fields:
-        errors.append(f"Missing required fields: {', '.join(missing_fields)}")
+    Raises:
+        ValueError: If validation fails
+    """
+    if not data:
+        raise ValueError("No data provided")
     
-    # Validate each field that is present
-    for field, rules in required_fields.items():
-        if field not in request_data:
-            continue
-            
-        value = request_data[field]
-        
-        # Check if field is empty
-        if field != "bio" and not value:
-            errors.append(f"{field} cannot be empty")
-            continue
-            
-        # Validate based on field type
-        if field == 'age':
-            try:
-                num_value = int(value)
-                if 'min_value' in rules and num_value < rules['min_value']:
-                    errors.append(f"{field} must be at least {rules['min_value']}")
-                if 'max_value' in rules and num_value > rules['max_value']:
-                    errors.append(f"{field} cannot exceed {rules['max_value']}")
-            except (ValueError, TypeError):
-                errors.append(f"{field} must be a valid number")
-                
-        elif field == 'bio' or field == 'location':
-            if 'min_length' in rules and len(value) < rules['min_length']:
-                errors.append(f"{field} must be at least {rules['min_length']} characters")
-            if 'max_length' in rules and len(value) > rules['max_length']:
-                errors.append(f"{field} cannot exceed {rules['max_length']} characters")
-                
-        elif field == 'gender' or field == 'sexual_preferences':
-            if 'allowed_values' in rules and value not in rules['allowed_values']:
-                errors.append(f"{field} must be one of: {', '.join(rules['allowed_values'])}")
-                
-        # elif field == 'profile_picture':
-        #     # Simple URL validation
-        #     if 'type' in rules and rules['type'] == 'url':
-        #         if not value.startswith(('http://', 'https://')):
-        #             errors.append("profile_picture must be a valid URL")
+    if required_fields:
+        for field in required_fields:
+            if field not in data or data[field] is None or data[field] == '':
+                raise ValueError(f"Required field '{field}' is missing or empty")
     
-    return errors
+    # Validate specific fields if present
+    if 'age' in data:
+        try:
+            age = int(data['age'])
+            if age < 18 or age > 120:
+                raise ValueError("Age must be between 18 and 120")
+        except (ValueError, TypeError):
+            raise ValueError("Invalid age format")
+    
+    if 'gender' in data:
+        valid_genders = ['male', 'female', 'non-binary', 'other']
+        if data['gender'].lower() not in valid_genders:
+            raise ValueError(f"Gender must be one of: {', '.join(valid_genders)}")
+    
+    if 'sexual_preference' in data:
+        valid_preferences = ['male', 'female', 'bisexual', 'all']
+        if data['sexual_preference'].lower() not in valid_preferences:
+            raise ValueError(f"Sexual preference must be one of: {', '.join(valid_preferences)}")
+    
+    if 'biography' in data and data['biography']:
+        if len(data['biography']) > 500:
+            raise ValueError("Biography must not exceed 500 characters")
+    
+    if 'first_name' in data and data['first_name']:
+        if len(data['first_name']) > 50:
+            raise ValueError("First name must not exceed 50 characters")
+        if not re.match(r'^[a-zA-Z\s\-\']+$', data['first_name']):
+            raise ValueError("First name contains invalid characters")
+    
+    if 'last_name' in data and data['last_name']:
+        if len(data['last_name']) > 50:
+            raise ValueError("Last name must not exceed 50 characters")
+        if not re.match(r'^[a-zA-Z\s\-\']+$', data['last_name']):
+            raise ValueError("Last name contains invalid characters")
+    
+    return True

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 from database.crud.profile_crud import Profile
 from database.crud.interactions_crud import Interactions
 from utils.security import auth_guard
+from utils.notification_service import NotificationService
 from src.interactions import interactions_bp
 
 
@@ -63,6 +64,16 @@ def block_user():
         blocked_user_profile = profile_crud.get_profile_by_user_id(blocked_user_data["id"])
         new_rating = calculate_fame_rating(blocked_user_profile['fame_rating'], type='block')  
         profile_crud.update_fame_rating(blocked_user_data["id"], new_rating)
+        
+        notification_service = NotificationService(connection_pool)
+    
+        notification_service.create_notification(
+            user_id=blocked_user_data["id"],
+            notification_type="block",
+            reference_id=g.user_id,
+        )
+        
+        
         return jsonify({"status": "ok", "message": f"you blocked user {requested_data["blocked_user"]}"}), 200
     except Exception as e:
         logging.exception("Error blocking user")

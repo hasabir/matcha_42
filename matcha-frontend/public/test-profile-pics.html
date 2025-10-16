@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Picture Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #fce7f3 0%, #f3e7fc 50%, #e7f0fc 100%);
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f9fafb;
+            border-radius: 12px;
+            border-left: 4px solid #ec4899;
+        }
+        .test-section h2 {
+            color: #374151;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+        .status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 0.5rem 0;
+        }
+        .status.pending { background: #fef3c7; color: #92400e; }
+        .status.success { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+        
+        .profile-pic {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ec4899;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+        }
+        button {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #1f2937;
+            color: #10b981;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        .log-error { color: #ef4444; }
+        .log-warning { color: #f59e0b; }
+        .log-success { color: #10b981; }
+        .log-info { color: #3b82f6; }
+        
+        .input-group {
+            margin: 1rem 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #ec4899;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Profile Picture Diagnostic Tool</h1>
+        
+        <!-- Token Input -->
+        <div class="test-section">
+            <h2>1. Authentication</h2>
+            <div class="input-group">
+                <label for="token">Access Token (from localStorage):</label>
+                <input type="text" id="token" placeholder="Paste your access token here">
+                <button onclick="loadToken()">Load from localStorage</button>
+                <button onclick="testAuth()">Test Authentication</button>
+            </div>
+            <div id="auth-status"></div>
+        </div>
+
+        <!-- Backend Connectivity -->
+        <div class="test-section">
+            <h2>2. Backend Connectivity</h2>
+            <button onclick="testBackend()">Test Backend</button>
+            <button onclick="testCORS()">Test CORS</button>
+            <div id="backend-status"></div>
+        </div>
+
+        <!-- Profile Picture API -->
+        <div class="test-section">
+            <h2>3. Profile Picture API</h2>
+            <button onclick="testProfilePicAPI()">Test API Endpoint</button>
+            <div id="pic-api-status"></div>
+            <div id="pic-url"></div>
+        </div>
+
+        <!-- Image Loading -->
+        <div class="test-section">
+            <h2>4. Image Loading Test</h2>
+            <button onclick="testImageLoad()">Load Profile Picture</button>
+            <div id="image-status"></div>
+            <img id="profile-pic" class="profile-pic" style="display:none;" alt="Profile">
+        </div>
+
+        <!-- Console Log -->
+        <div class="test-section">
+            <h2>5. Diagnostic Log</h2>
+            <button onclick="clearLog()">Clear Log</button>
+            <button onclick="exportLog()">Export Log</button>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:5000';
+        let accessToken = '';
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        function setStatus(elementId, status, message) {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<span class="status ${status}">${message}</span>`;
+        }
+
+        function loadToken() {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                document.getElementById('token').value = token;
+                accessToken = token;
+                log('Token loaded from localStorage', 'success');
+                setStatus('auth-status', 'success', '✓ Token loaded');
+            } else {
+                log('No token found in localStorage', 'error');
+                setStatus('auth-status', 'error', '✗ No token found');
+            }
+        }
+
+        async function testAuth() {
+            const tokenInput = document.getElementById('token').value;
+            if (!tokenInput) {
+                log('Please enter an access token', 'error');
+                setStatus('auth-status', 'error', '✗ No token provided');
+                return;
+            }
+            
+            accessToken = tokenInput;
+            log('Testing authentication...', 'info');
+            setStatus('auth-status', 'pending', '⏳ Testing...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/profile/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`Authentication successful! User: ${data.username || 'Unknown'}`, 'success');
+                    setStatus('auth-status', 'success', '✓ Authenticated');
+                } else {
+                    log(`Authentication failed: ${data.error || response.statusText}`, 'error');
+                    setStatus('auth-status', 'error', '✗ Authentication failed');
+                }
+            } catch (error) {
+                log(`Authentication error: ${error.message}`, 'error');
+                setStatus('auth-status', 'error', '✗ Network error');
+            }
+        }
+
+        async function testBackend() {
+            log('Testing backend connectivity...', 'info');
+            setStatus('backend-status', 'pending', '⏳ Testing...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/docs`, {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    log('Backend is responding', 'success');
+                    setStatus('backend-status', 'success', '✓ Backend online');
+                } else {
+                    log(`Backend returned status ${response.status}`, 'warning');
+                    setStatus('backend-status', 'warning', `⚠ Status ${response.status}`);
+                }
+            } catch (error) {
+                log(`Backend connection failed: ${error.message}`, 'error');
+                setStatus('backend-status', 'error', '✗ Backend offline');
+            }
+        }
+
+        async function testCORS() {
+            log('Testing CORS configuration...', 'info');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/profile/me`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:3000',
+                        'Access-Control-Request-Method': 'GET'
+                    }
+                });
+                
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                
+                if (corsHeader) {
+                    log(`CORS enabled: ${corsHeader}`, 'success');
+                    setStatus('backend-status', 'success', '✓ CORS configured');
+                } else {
+                    log('CORS headers not found', 'error');
+                    setStatus('backend-status', 'error', '✗ CORS missing');
+                }
+            } catch (error) {
+                log(`CORS test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProfilePicAPI() {
+            if (!accessToken) {
+                log('Please authenticate first', 'error');
+                return;
+            }
+            
+            log('Testing profile picture API...', 'info');
+            setStatus('pic-api-status', 'pending', '⏳ Fetching...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/profile/get_profile_pic/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.result) {
+                    const relativePath = data.result;
+                    const absoluteUrl = relativePath.startsWith('http') 
+                        ? relativePath 
+                        : `${BASE_URL}${relativePath}`;
+                    
+                    log(`Profile picture path: ${relativePath}`, 'success');
+                    log(`Absolute URL: ${absoluteUrl}`, 'info');
+                    
+                    document.getElementById('pic-url').innerHTML = `
+                        <p><strong>Relative path:</strong> ${relativePath}</p>
+                        <p><strong>Absolute URL:</strong> <a href="${absoluteUrl}" target="_blank">${absoluteUrl}</a></p>
+                    `;
+                    
+                    setStatus('pic-api-status', 'success', '✓ API working');
+                    
+                    // Store for image test
+                    window.profilePicUrl = absoluteUrl;
+                } else {
+                    log(`API error: ${data.error || 'No picture found'}`, 'error');
+                    setStatus('pic-api-status', 'error', '✗ API error');
+                }
+            } catch (error) {
+                log(`API request failed: ${error.message}`, 'error');
+                setStatus('pic-api-status', 'error', '✗ Request failed');
+            }
+        }
+
+        async function testImageLoad() {
+            if (!window.profilePicUrl) {
+                log('Please test profile picture API first', 'error');
+                return;
+            }
+            
+            log(`Loading image from: ${window.profilePicUrl}`, 'info');
+            setStatus('image-status', 'pending', '⏳ Loading...');
+            
+            const img = document.getElementById('profile-pic');
+            
+            img.onload = function() {
+                log('Image loaded successfully!', 'success');
+                setStatus('image-status', 'success', '✓ Image loaded');
+                img.style.display = 'block';
+            };
+            
+            img.onerror = function() {
+                log('Image failed to load (404 or CORS error)', 'error');
+                setStatus('image-status', 'error', '✗ Image load failed');
+                img.style.display = 'none';
+            };
+            
+            img.src = window.profilePicUrl;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared', 'info');
+        }
+
+        function exportLog() {
+            const logContent = document.getElementById('log').innerText;
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `profile-pic-diagnostic-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('Log exported', 'success');
+        }
+
+        // Auto-load token on page load
+        window.onload = function() {
+            log('Diagnostic tool loaded', 'success');
+            log('Click "Load from localStorage" to start', 'info');
+        };
+    </script>
+</body>
+</html>

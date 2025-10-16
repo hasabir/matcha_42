@@ -1,48 +1,97 @@
-import os
+"""
+Configuration Manager for the application
+"""
 import yaml
+import os
+
 
 class ConfigManager:
-    def __init__(self, config_file_path: str) -> None:
-        self.config_file_path = config_file_path
-        self.config = self.load_config(config_file_path)
-
-    def load_config(self, config_file_path: str) -> dict:
-        if not os.path.exists(config_file_path):
-            raise FileNotFoundError(f"Configuration file not found: {config_file_path}")
-
-        with open(config_file_path, 'r') as file:
-            config = yaml.safe_load(file)
+    """Manages application configuration from YAML files"""
+    
+    def __init__(self, config_path=None):
+        """
+        Initialize the ConfigManager
         
-        def replace_env_vars(obj):
-            if isinstance(obj, dict):
-                return {k: replace_env_vars(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [replace_env_vars(item) for item in obj]
-            elif isinstance(obj, str) and obj.startswith('${') and obj.endswith('}'):
-                env_var = obj[2:-1]
-                # Handle default values: ${VAR:-default}
-                if ':-' in env_var:
-                    var_name, default_value = env_var.split(':-', 1)
-                    return os.environ.get(var_name, default_value)
-                else:
-                    return os.environ.get(env_var, obj)  # Return original if not found
-            return obj
+        Args:
+            config_path: Optional path to the configuration file
+        """
+        self.config_path = config_path
+        self.config = {}
     
-        return replace_env_vars(config)
-
-    def __getitem__(self, key: str):
-        return self.config.get(key)
-
-    def __setitem__(self, key: str, value) -> None:
+    def load_config(self, config_path=None):
+        """
+        Load configuration from a YAML file
+        
+        Args:
+            config_path: Path to the configuration file (optional if set in __init__)
+        
+        Returns:
+            dict: Configuration dictionary
+        """
+        path = config_path or self.config_path
+        
+        if not path or not os.path.exists(path):
+            # Return default configuration if file doesn't exist
+            return self._get_default_config()
+        
+        try:
+            with open(path, 'r') as file:
+                self.config = yaml.safe_load(file) or {}
+                return self.config
+        except Exception as e:
+            print(f"Warning: Could not load config from {path}: {e}")
+            return self._get_default_config()
+    
+    def _get_default_config(self):
+        """
+        Get default configuration values
+        
+        Returns:
+            dict: Default configuration dictionary
+        """
+        return {
+            'SECRET_KEY': os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production'),
+            'DEBUG': os.environ.get('DEBUG', 'True').lower() == 'true',
+            'TESTING': False,
+            'MAIL_SERVER': os.environ.get('MAIL_SERVER', 'smtp.gmail.com'),
+            'MAIL_PORT': int(os.environ.get('MAIL_PORT', 587)),
+            'MAIL_USE_TLS': True,
+            'MAIL_USE_SSL': False,
+            'MAIL_USERNAME': os.environ.get('MAIL_USERNAME', ''),
+            'MAIL_PASSWORD': os.environ.get('SMTP_SECRET_KEY', ''),
+            'MAIL_DEFAULT_SENDER': os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@matcha.com'),
+            'MAX_CONTENT_LENGTH': 16 * 1024 * 1024,  # 16MB max file size
+            'UPLOAD_FOLDER': 'static/profiles',
+        }
+    
+    def get(self, key, default=None):
+        """
+        Get a configuration value
+        
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+        
+        Returns:
+            Configuration value or default
+        """
+        return self.config.get(key, default)
+    
+    def set(self, key, value):
+        """
+        Set a configuration value
+        
+        Args:
+            key: Configuration key
+            value: Configuration value
+        """
         self.config[key] = value
-        self.save_yaml()
-
-    def save_yaml(self) -> None:
-        with open(self.config_file_path, 'w') as file:
-            yaml.safe_dump(self.config, file)
-
-    def get_metadata(self):
-        return self.config
     
-    def __check(self, config):
-        ...
+    def update(self, new_config):
+        """
+        Update configuration with new values
+        
+        Args:
+            new_config: Dictionary of new configuration values
+        """
+        self.config.update(new_config)

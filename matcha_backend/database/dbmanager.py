@@ -1,221 +1,245 @@
+"""
+Database Manager - Base class for CRUD operations
+Provides common database operations for all CRUD classes
+"""
 import logging
-from flask import g, current_app
-import uuid
-from psycopg2 import sql
-import psycopg2.extras
-
-from psycopg2 import sql  # Required for proper SQL composition
-logging.basicConfig(level=logging.DEBUG)
+from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
 
 class DBManager:
+    """Base class for database operations with connection pooling"""
+    
     def __init__(self, connection_pool):
-        self.pool = connection_pool
-
-    def execute(self, query, params=None):
-        """Generic query executor"""
-        print("\033[93mExecuting query:\033[0m", query)
-        conn = self.pool.getconn()
+        """
+        Initialize DBManager with a connection pool
+        
+        Args:
+            connection_pool: psycopg2 connection pool
+        """
+        self.connection_pool = connection_pool
+    
+    def _get_connection(self):
+        """Get a connection from the pool"""
+        return self.connection_pool.getconn()
+    
+    def _return_connection(self, conn):
+        """Return a connection to the pool"""
+        self.connection_pool.putconn(conn)
+    
+    def execute(self, query, params=None, fetch=False):
+        """
+        Execute a raw SQL query
+        
+        Args:
+            query: SQL query string
+            params: Query parameters tuple
+            fetch: Whether to fetch results
+        
+        Returns:
+            Query results if fetch=True, else None
+        """
+        conn = None
         try:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(query, params or ())
-                #! logger.info(f"❌❌❌Executing search query: {query} with params: {params}")
-                if hasattr(query, 'as_string') and "SELECT" in str(query).upper():
-                    #! logger.info(f"❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌ it should be a select query")
-                    return cursor.fetchall()
-
-                conn.commit()
-                return cursor.rowcount  # Return affected rows for INSERT/UPDATE/DELETE
-                
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(query, params or ())
+            
+            if fetch:
+                result = cursor.fetchall()
+                return [dict(row) for row in result]
+            
+            conn.commit()
+            return None
+            
         except Exception as e:
-            conn.rollback()
-            print(f"\033[91mDatabase error:\033[0m {e}")
+            if conn:
+                conn.rollback()
+            logger.error(f"Database error: {str(e)}")
             raise
         finally:
-            self.pool.putconn(conn)
-
-
-    def select(self, table, columns="*", where=None, where_params=None, in_params=None,
-               join=None, join_on=None, join_type="INNER"):
-        """Safe parameterized SELECT query builder"""
-        # Build SELECT fields
-        if columns == "*":
-            fields = sql.SQL("*")
-        else:
-            fields = sql.SQL(', ').join([sql.Identifier(col.strip()) for col in columns.split(',')])
-
-        query = sql.SQL("SELECT {fields} FROM {table}").format(
-            fields=fields,
-            table=sql.Identifier(table)
-        )
-
-        # if join and join_on:
-
-        params = []
-        
-        # Add WHERE clause if provided
-        
-        if where:
-            query = sql.SQL("{base_query} WHERE {where_clause}").format(
-                base_query=query,
-                where_clause=sql.SQL(where)
-            )
-            if where_params:
-                if isinstance(where_params, (list, tuple)):
-                    params.extend(where_params)
-                else:
-                    params.append(where_params)
-
-        # Add IN clause if provided
-        if in_params:
-            placeholders = sql.SQL(', ').join(sql.Placeholder() * len(in_params))
-            query = sql.SQL("{base_query}  IN ({placeholders})").format(
-                base_query=query,
-                in_field=sql.Identifier(where) if isinstance(where, str) else sql.Identifier('id'),
-                placeholders=placeholders
-            )
-            params.extend(in_params)
-
-        # logging.info("❌❌❌Executing select query: %s with params: %s", str(query), params)
-        return self.execute(query, params if params else None)
-
-
-    def insert(self, table, data, on_conflict=None, conflict_target=None, update_set=None):
+            if conn:
+                self._return_connection(conn)
+    
+    def select(self, table, columns='*', where=None, where_params=None, order_by=None, limit=None):
         """
-        Insert data into table with optional UPSERT support
+        Select records from a table
         
         Args:
             table: Table name
-            data: Dictionary of column: value pairs
-            on_conflict: Conflict action ('NOTHING', 'UPDATE')
-            conflict_target: List of columns for conflict detection
-            update_set: Dictionary of columns to update on conflict
+            columns: Columns to select (string or list)
+            where: WHERE clause
+            where_params: Parameters for WHERE clause
+            order_by: ORDER BY clause
+            limit: LIMIT value
+        
+        Returns:
+            List of dictionaries representing rows
         """
-        if not isinstance(data, dict):
-            raise ValueError("Data must be a dictionary")
-        if not data:
-            raise ValueError("Data cannot be empty")
-
-        columns = list(data.keys())
-        values = list(data.values())
-
-        query = sql.SQL("INSERT INTO {table} ({fields}) VALUES ({placeholders})").format(
-            table=sql.Identifier(table),
-            fields=sql.SQL(", ").join(map(sql.Identifier, columns)),
-            placeholders=sql.SQL(", ").join(sql.Placeholder() * len(values))
-        )
+        if isinstance(columns, list):
+            columns = ', '.join(columns)
         
-        if on_conflict:
-            if not conflict_target:
-                raise ValueError("conflict_target is required for ON CONFLICT")
-            
-            if on_conflict.upper() == 'UPDATE' and not update_set:
-                raise ValueError("update_set is required for ON CONFLICT UPDATE")
-            
-            conflict_clause = sql.SQL("({})").format(
-                sql.SQL(", ").join(map(sql.Identifier, conflict_target))
-            )
-            
-            if on_conflict.upper() == 'NOTHING':
-                query = sql.SQL("{base_query} ON CONFLICT {conflict_target} DO NOTHING").format(
-                    base_query=query,
-                    conflict_target=conflict_clause
-                )
-            elif on_conflict.upper() == 'UPDATE':
-                # Use EXCLUDED to reference the values that would have been inserted
-                set_clauses = []
-                for col in update_set.keys():
-                    set_clauses.append(sql.SQL("{column} = EXCLUDED.{column}").format(
-                        column=sql.Identifier(col)
-                    ))
-                
-                query = sql.SQL("{base_query} ON CONFLICT {conflict_target} DO UPDATE SET {set_clause}").format(
-                    base_query=query,
-                    conflict_target=conflict_clause,
-                    set_clause=sql.SQL(", ").join(set_clauses)
-                )
-                
-                # Don't extend values as we're using EXCLUDED
-            else:
-                raise ValueError("on_conflict must be 'NOTHING' or 'UPDATE'")
-
-        return self.execute(query, values)
-
-
-    def update(self, table, data, where=None, where_params=None):
+        query = f"SELECT {columns} FROM {table}"
+        params = []
         
+        if where:
+            query += f" WHERE {where}"
+            if where_params:
+                params.extend(where_params if isinstance(where_params, tuple) else (where_params,))
         
+        if order_by:
+            query += f" ORDER BY {order_by}"
+        
+        if limit:
+            query += f" LIMIT {limit}"
+        
+        return self.execute(query, tuple(params), fetch=True)
+    
+    def insert(self, table, data, on_conflict=None, conflict_target=None, returning_column=None):
         """
-        Safe UPDATE function with parameterized WHERE clause
+        Insert a record into a table
         
-        :param table: Table name
-        :param data: Dict of {column: value} to update
-        :param where: SQL string for WHERE clause (use placeholders %s)
-        :param where_params: Parameters for WHERE clause placeholders
+        Args:
+            table: Table name
+            data: Dictionary of column:value pairs
+            on_conflict: Conflict resolution strategy ('nothing', 'update', etc.)
+            conflict_target: Columns that define the conflict (for ON CONFLICT clause)
+            returning_column: Column name to return (defaults to table-specific ID column)
+        
+        Returns:
+            ID of inserted row (or None if ON CONFLICT DO NOTHING skips insert)
         """
         if not data:
+            raise ValueError("No data provided for insert")
+        
+        columns = ', '.join(data.keys())
+        placeholders = ', '.join(['%s'] * len(data))
+        values = tuple(data.values())
+        
+        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        
+        # Add ON CONFLICT clause if specified
+        if on_conflict and conflict_target:
+            conflict_cols = ', '.join(conflict_target)
+            if on_conflict.lower() == 'nothing':
+                query += f" ON CONFLICT ({conflict_cols}) DO NOTHING"
+            elif on_conflict.lower() == 'update':
+                # Create SET clause for UPDATE
+                set_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in data.keys()])
+                query += f" ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_clause}"
+        
+        # Determine the ID column name based on table
+        if returning_column:
+            id_column = returning_column
+        else:
+            # Map table names to their ID column names
+            id_column_map = {
+                'images': 'image_id',
+                'profiles': 'profile_id',
+                'tags': 'tag_id',
+                'conversations': 'conversation_id',
+                'messages': 'message_id',
+                'notifications': 'notification_id',
+                'user_locations': 'location_id'
+            }
+            id_column = id_column_map.get(table, 'id')
+        
+        query += f" RETURNING {id_column}"
+        
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(query, values)
+            result = cursor.fetchone()
+            conn.commit()
+            return result[0] if result else None
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Insert error: {str(e)}")
+            raise
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    def update(self, table, set_data, where=None, where_params=None):
+        """
+        Update records in a table
+        
+        Args:
+            table: Table name
+            set_data: Dictionary of column:value pairs to update
+            where: WHERE clause
+            where_params: Parameters for WHERE clause
+        
+        Returns:
+            Number of rows affected
+        """
+        if not set_data:
             raise ValueError("No data provided for update")
         
-        # Build SET clause
-        set_clause = sql.SQL(", ").join([
-            sql.SQL("{} = %s").format(sql.Identifier(key))
-            for key in data.keys()
-        ])
+        set_clause = ', '.join([f"{col} = %s" for col in set_data.keys()])
+        params = list(set_data.values())
         
-        # Build WHERE clause
+        query = f"UPDATE {table} SET {set_clause}"
+        
         if where:
-            where_clause = sql.SQL("WHERE {}").format(sql.SQL(where))
-        else:
-            where_clause = sql.SQL("")  # No WHERE clause (use with caution!)
+            query += f" WHERE {where}"
+            if where_params:
+                params.extend(where_params if isinstance(where_params, tuple) else (where_params,))
         
-        # Build complete query
-        query = sql.SQL("UPDATE {} SET {} {}").format(
-            sql.Identifier(table),
-            set_clause,
-            where_clause
-        )
-        
-        # Combine parameters
-        params = list(data.values())
-        if where_params:
-            if isinstance(where_params, (list, tuple)):
-                params.extend(where_params)
-            else:
-                params.append(where_params)
-        
-        return self.execute(query, params)
-
-    def delete(self, table, where=None, where_params=None):
-        """Safe parameterized DELETE query builder"""
-        # Start with the basic DELETE statement
-        query = sql.SQL("DELETE FROM {table}").format(
-            table=sql.Identifier(table)
-        )
-        
-        # Add WHERE clause if provided
-        if where:
-            query = sql.SQL("{base_query} WHERE {where_clause}").format(
-                base_query=query,
-                where_clause=sql.SQL(where)
-            )
-        
-        return self.execute(query, where_params)
-            
-        
-        
-        
-        # query = sql.SQL("DELETE {feild} FROM {table} WHERE {where}").format(
-        #     table=sql.Identifier(table),
-        #     where=sql.SQL(where)
-        # )
-        # return self.execute(query)
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(query, tuple(params))
+            rows_affected = cursor.rowcount
+            conn.commit()
+            return rows_affected
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Update error: {str(e)}")
+            raise
+        finally:
+            if conn:
+                self._return_connection(conn)
     
-
-    def get_db_connection():
-        """Get a DB connection for the current request (reuses if already opened)."""
-        if not hasattr(g, '_database_connection'):
-            pool = current_app.config["CONNECTION_POOL"]
-            g._database_connection = pool.getconn()
-        return g._database_connection
+    def delete(self, table, where=None, where_params=None):
+        """
+        Delete records from a table
+        
+        Args:
+            table: Table name
+            where: WHERE clause
+            where_params: Parameters for WHERE clause
+        
+        Returns:
+            Number of rows deleted
+        """
+        query = f"DELETE FROM {table}"
+        params = []
+        
+        if where:
+            query += f" WHERE {where}"
+            if where_params:
+                params.extend(where_params if isinstance(where_params, tuple) else (where_params,))
+        
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(query, tuple(params))
+            rows_affected = cursor.rowcount
+            conn.commit()
+            return rows_affected
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Delete error: {str(e)}")
+            raise
+        finally:
+            if conn:
+                self._return_connection(conn)

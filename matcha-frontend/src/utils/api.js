@@ -1,6 +1,6 @@
 // src/utils/api.js
 
-const BASE = "http://localhost:5000";
+export const BASE = "http://localhost:5000";
 
 /**
  * fetchWithAuth
@@ -76,23 +76,23 @@ export async function fetchWithAuth(url, options = {}) {
  * ========================= */
 
 export const api = {
-  meProfile: () =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile/me`),
+  meProfile: (options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_profile/me`, options),
 
-  userProfile: (username) =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile/${encodeURIComponent(username)}`),
+  userProfile: (username, options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_profile/${encodeURIComponent(username)}`, options),
 
-  myProfilePic: () =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile_pic/me`),
+  myProfilePic: (options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_profile_pic/me`, options),
 
-  userProfilePic: (username) =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile_pic/${encodeURIComponent(username)}`),
+  userProfilePic: (username, options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_profile_pic/${encodeURIComponent(username)}`, options),
 
-  userImages: (username) =>
-    fetchWithAuth(`${BASE}/api/profile/get_images/${encodeURIComponent(username)}`),
+  userImages: (username, options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_images/${encodeURIComponent(username)}`, options),
 
-  myVisitors: () =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile_vistors`),
+  myVisitors: (options = {}) =>
+    fetchWithAuth(`${BASE}/api/profile/get_profile_vistors`, options),
 
   setLocation: (lat, lng, acc) =>
     fetchWithAuth(`${BASE}/api/profile/set_location`, {
@@ -102,39 +102,44 @@ export const api = {
     }),
 
   /* -------- Interactions (object style) -------- */
-  likeDislike: (likedUsername) =>
+  likeDislike: (likedUsername, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/like_dislike`, {
+      ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ liked_user: likedUsername }),
     }),
 
-  getUsers: (type /* 'liked' | 'likers' */) =>
-    fetchWithAuth(`${BASE}/api/interactions/get_users/${encodeURIComponent(type)}`),
+  getUsers: (type /* 'liked' | 'likers' */, options = {}) =>
+    fetchWithAuth(`${BASE}/api/interactions/get_users/${encodeURIComponent(type)}`, options),
 
-  isMatched: (otherUsername) =>
+  isMatched: (otherUsername, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/is_matched`, {
+      ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ other_user: otherUsername }),
     }),
 
-  block: (username) =>
+  block: (username, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/block`, {
+      ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ blocked_user: username }),
     }),
 
-  unblock: (username) =>
+  unblock: (username, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/unblock`, {
+      ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ unblocked_user: username }),
     }),
 
-  report: (username, reason) =>
+  report: (username, reason, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/report`, {
+      ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reported_user: username, reason }),

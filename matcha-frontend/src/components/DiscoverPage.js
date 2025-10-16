@@ -1,8 +1,8 @@
 // src/pages/DiscoverPage.js
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { fetchWithAuth } from "../utils/api";
 import "./DiscoverPage.css";
 import "leaflet/dist/leaflet.css";
-
 
 // ⬇️ Map
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-leaflet";
@@ -21,20 +21,10 @@ const defaultIcon = new L.Icon({
 });
 L.Marker.prototype.options.icon = defaultIcon;
 
-// Demo data now has lat/lng and followers
-const users = [
-  { id: 1, name: "Sophia",  age: 28, followers: 2100, lat: 37.7749, lng: -122.4194, tags: ["Hiking","Photography","Travel"], avatar: "https://i.pravatar.cc/160?img=1" },
-  { id: 2, name: "Ethan",   age: 32, followers: 120,  lat: 34.0522, lng: -118.2437, tags: ["Music","Cooking","Reading"],    avatar: "https://i.pravatar.cc/160?img=2" },
-  { id: 3, name: "Olivia",  age: 25, followers: 980,  lat: 40.7128, lng: -74.0060,  tags: ["Art","Yoga","Movies"],        avatar: "https://i.pravatar.cc/160?img=3" },
-  { id: 4, name: "Noah",    age: 30, followers: 4300, lat: 41.8781, lng: -87.6298,  tags: ["Gaming","Tech","Sports"],     avatar: "https://i.pravatar.cc/160?img=4" },
-  { id: 5, name: "Ava",     age: 27, followers: 560,  lat: 29.7604, lng: -95.3698,  tags: ["Fashion","Brunch","Shopping"],avatar: "https://i.pravatar.cc/160?img=5" },
-  { id: 6, name: "Liam",    age: 31, followers: 70,   lat: 47.6062, lng: -122.3321, tags: ["Fitness","Outdoors","Volunteering"], avatar: "https://i.pravatar.cc/160?img=6" },
-];
-
-// Common tags
-const ALL_TAGS = [
+// Common tags - now loaded from backend
+let ALL_TAGS = [
   "Hiking","Reading","Cooking","Travel","Music","Art","Sports",
-  "Movies","Gaming","Volunteering",
+  "Movies","Gaming","Volunteering","Technology","Photography","Fitness","Health","Dancing"
 ];
 
 function haversineKm(a, b) {
@@ -66,41 +56,104 @@ function ClickToSet({ onPick }) {
 }
 
 const DiscoverPage = () => {
+  // State for suggestions and filters
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   // Filters
-  const [minAge, setMinAge] = useState(18);
-  const [maxAge, setMaxAge] = useState(60);
-
-  const [followersMin, setFollowersMin] = useState(0); // "fame rating"
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
+  const [followersMin, setFollowersMin] = useState(''); // "fame rating"
+  const [followersMax, setFollowersMax] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
+  const [sortBy, setSortBy] = useState('match_score');
 
   // Map state
-  const [center, setCenter] = useState({ lat: 39.5, lng: -98.35 }); // USA center
-  const [radiusKm, setRadiusKm] = useState(500); // search radius
+  const [center, setCenter] = useState({ lat: 40.7128, lng: -74.0060 }); // NYC default
+  const [radiusKm, setRadiusKm] = useState(100); // search radius
+  
+  // Filter options from backend
+  const [filterOptions, setFilterOptions] = useState(null);
+
+  useEffect(() => {
+    loadFilterOptions();
+    loadSuggestions();
+  }, []);
+
+  const loadFilterOptions = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5000/api/browse/filters');
+      if (response.ok) {
+        const data = await response.json();
+        setFilterOptions(data);
+        if (data.available_interests) {
+          ALL_TAGS = data.available_interests;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load filter options:', err);
+    }
+  };
+
+  const loadSuggestions = async () => {
+    setLoading(true);
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (minAge) params.append('min_age', minAge);
+      if (maxAge) params.append('max_age', maxAge);
+      if (followersMin) params.append('min_fame', followersMin);
+      if (followersMax) params.append('max_fame', followersMax);
+      if (radiusKm) params.append('max_distance', radiusKm);
+      if (selectedTags.length > 0) params.append('common_tags', selectedTags.join(','));
+      if (sortBy) params.append('sort_by', sortBy);
+      params.append('sort_order', 'desc');
+
+      const response = await fetchWithAuth(`http://localhost:5000/api/browse/suggestions?${params}`);
+      if (!response.ok) throw new Error('Failed to load suggestions');
+      
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading suggestions:', err);
+      setError(err.message);
+      // Fallback to empty array on error
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Toggle tag chips
-  const toggleTag = (t) =>
+  const toggleTag = (t) => {
     setSelectedTags((cur) =>
       cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]
     );
+  };
 
-  // Derived: filter users
-  const filtered = useMemo(() => {
-    return users.filter((u) => {
-      if (u.age < minAge || u.age > maxAge) return false;
-      if (u.followers < followersMin) return false;
-
-      // tags: require at least one selected tag (if any chosen)
-      if (selectedTags.length && !u.tags.some((t) => selectedTags.includes(t)))
-        return false;
-
-      // location: within radius (if user clicked the map at least once)
-      if (center && radiusKm) {
-        const d = haversineKm(center, { lat: u.lat, lng: u.lng });
-        if (d > radiusKm) return false;
+  const handleLike = async (username) => {
+    try {
+      const response = await fetchWithAuth(`http://localhost:5000/api/interactions/like/${username}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.match) {
+          alert(`🎉 It's a match with ${username}!`);
+        } else {
+          alert(`💖 You liked ${username}`);
+        }
       }
-      return true;
-    });
-  }, [minAge, maxAge, followersMin, selectedTags, center, radiusKm]);
+    } catch (err) {
+      console.error('Error liking user:', err);
+    }
+  };
+
+  const applyFilters = () => {
+    loadSuggestions();
+  };
 
   return (
     <div className="discover-container">
@@ -111,36 +164,60 @@ const DiscoverPage = () => {
         <div className="filter-panel">
           <div className="filter-row">
             <div className="filter-col">
-              <label>Age</label>
+              <label>Age Range</label>
               <div className="range-2">
                 <input
                   type="number"
                   min="18"
-                  max={maxAge}
+                  max="100"
                   value={minAge}
-                  onChange={(e) => setMinAge(Number(e.target.value))}
+                  onChange={(e) => setMinAge(e.target.value)}
+                  placeholder="Min"
                 />
                 <span>to</span>
                 <input
                   type="number"
-                  min={minAge}
-                  max="99"
+                  min="18"
+                  max="100"
                   value={maxAge}
-                  onChange={(e) => setMaxAge(Number(e.target.value))}
+                  onChange={(e) => setMaxAge(e.target.value)}
+                  placeholder="Max"
                 />
               </div>
             </div>
 
             <div className="filter-col">
-              <label>Fame Rating (followers)</label>
-              <input
-                type="number"
-                min="0"
-                step="50"
-                value={followersMin}
-                onChange={(e) => setFollowersMin(Number(e.target.value))}
-                placeholder="Min followers"
-              />
+              <label>Fame Rating</label>
+              <div className="range-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={followersMin}
+                  onChange={(e) => setFollowersMin(e.target.value)}
+                  placeholder="Min"
+                />
+                <span>to</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={followersMax}
+                  onChange={(e) => setFollowersMax(e.target.value)}
+                  placeholder="Max"
+                />
+              </div>
+            </div>
+            
+            <div className="filter-col">
+              <label>Sort By</label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="match_score">Best Match</option>
+                <option value="distance">Distance</option>
+                <option value="age">Age</option>
+                <option value="fame_rating">Fame Rating</option>
+                <option value="common_tags">Common Interests</option>
+              </select>
             </div>
           </div>
 
@@ -159,6 +236,14 @@ const DiscoverPage = () => {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+          
+          <div className="filter-row">
+            <div className="filter-col">
+              <button className="apply-filters-btn" onClick={applyFilters}>
+                🔍 Apply Filters ({suggestions.length} matches)
+              </button>
             </div>
           </div>
 
@@ -202,31 +287,122 @@ const DiscoverPage = () => {
         </div>
 
         {/* RESULTS */}
-        <div className="users-grid">
-          {filtered.map((user) => (
-            <div className="user-card" key={user.id}>
-              <div className="avatar-wrapper">
-                <img src={user.avatar} alt={user.name} />
-              </div>
-              <div className="user-info">
-                <h3>
-                  {user.name}, {user.age}
-                </h3>
-                <p className="meta">
-                  Followers: <strong>{user.followers}</strong>
-                </p>
-                <div className="tags-inline">
-                  {user.tags.map((t) => (
-                    <span key={t} className="mini-chip">{t}</span>
-                  ))}
+        {loading && (
+          <div className="loading">
+            <p>🔍 Finding your perfect matches...</p>
+          </div>
+        )}
+        
+        {error && (
+          <div className="error-message">
+            ❌ {error}
+            <button onClick={loadSuggestions}>Try Again</button>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="users-grid">
+            {suggestions.map((user) => (
+              <div className="user-card" key={user.username}>
+                <div className="avatar-wrapper">
+                  {user.profile_picture ? (
+                    <img 
+                      src={user.profile_picture} 
+                      alt={`${user.first_name}'s profile`}
+                      onError={(e) => {
+                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjE2MCIgdmlld0JveD0iMCAwIDE2MCAxNjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNjAiIGhlaWdodD0iMTYwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjgwIiBjeT0iNjAiIHI9IjI4IiBmaWxsPSIjRDVEOURGIi8+CjxwYXRoIGQ9Ik00MCAyMEM0MCA5MC43IDU1LjIgNzYgNzYgNzZIODRDMTA0LjggNzYgMTIwIDkwLjcgMTIwIDEyMFYxMjBINDBWMTIwWiIgZmlsbD0iI0Q1RDlERiIvPgo8L3N2Zz4=';
+                      }}
+                    />
+                  ) : (
+                    <div className="placeholder-avatar">👤</div>
+                  )}
+                  {user.match_score && (
+                    <div className="match-badge">
+                      Match: {Math.round(user.match_score)}%
+                    </div>
+                  )}
+                </div>
+                <div className="user-info">
+                  <h3>
+                    {user.first_name} {user.last_name}, {user.age}
+                  </h3>
+                  <p className="meta">
+                    📍 {user.distance ? `${user.distance}km away` : `${user.city}, ${user.country}`}
+                  </p>
+                  <p className="meta">
+                    ⭐ Fame: <strong>{user.fame_rating}/100</strong>
+                    {user.common_interests > 0 && (
+                      <span> • 🤝 {user.common_interests} shared</span>
+                    )}
+                  </p>
+                  
+                  {user.bio && (
+                    <p className="bio-preview">
+                      {user.bio.length > 80 ? `${user.bio.substring(0, 80)}...` : user.bio}
+                    </p>
+                  )}
+                  
+                  <div className="tags-inline">
+                    {(user.interests || []).slice(0, 4).map((t, idx) => (
+                      <span 
+                        key={idx} 
+                        className={`mini-chip ${selectedTags.includes(t) ? 'highlighted' : ''}`}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                    {user.interests && user.interests.length > 4 && (
+                      <span className="mini-chip more">+{user.interests.length - 4}</span>
+                    )}
+                  </div>
+
+                  {user.compatibility_reasons && user.compatibility_reasons.length > 0 && (
+                    <div className="compatibility-badges">
+                      {user.compatibility_reasons.slice(0, 2).map((reason, idx) => (
+                        <span key={idx} className="compatibility-badge">
+                          ✓ {reason}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="user-actions">
+                    <button 
+                      className="like-btn"
+                      onClick={() => handleLike(user.username)}
+                    >
+                      💖 Like
+                    </button>
+                    <button 
+                      className="view-profile-btn"
+                      onClick={() => window.open(`/profile/${user.username}`, '_blank')}
+                    >
+                      👤 Profile
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {!filtered.length && (
-            <div className="empty">No matches with current filters.</div>
-          )}
-        </div>
+            ))}
+            
+            {!loading && suggestions.length === 0 && (
+              <div className="empty">
+                <h3>No matches found 😔</h3>
+                <p>Try adjusting your filters to discover more people!</p>
+                <button onClick={() => {
+                  setMinAge('');
+                  setMaxAge('');
+                  setFollowersMin('');
+                  setFollowersMax('');
+                  setSelectedTags([]);
+                  setRadiusKm(100);
+                  setTimeout(loadSuggestions, 100);
+                }}>
+                  Reset Filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

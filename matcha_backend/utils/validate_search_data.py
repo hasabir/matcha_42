@@ -1,72 +1,106 @@
+"""
+Search data validation module
+Validates search/filter criteria for user discovery
+"""
+import logging
 
-def validate_search_data(data):
-    expected_fields = ['age_range', 'interests',
-                       'fame_rating', 'location',
-                       'coordinates', 'distance']
-    if filter:
-        expected_fields.append('usernames')
-    
-    if not data:
-        return False, "No data provided."
-    
-    incorrect_fields = [field for field in data if field not in expected_fields]
-    # missing_fields = [field for field in expected_fields if field not in data]
+logger = logging.getLogger(__name__)
 
-    if incorrect_fields:
-        return False, f"Unexpected fields: {', '.join(incorrect_fields)}. expected fields are: {expected_fields}"
-    # if missing_fields:
-    #     return False, f"Missing required fields: {', '.join(missing_fields)}"
-    # if 'location' or 'coordinates' not in data:
-    #     return False, "Either 'location with city name and country name' or 'coordinates' must be provided."
+
+def validate_search_data(search_data):
+    """
+    Validate search/filter data for user discovery
     
-   
-    if 'age_range' in data:
-        age_range = data['age_range']
-        if (not isinstance(age_range, dict) or len(age_range) != 2 or
-            'min_age' not in age_range or 'max_age' not in age_range or
-            not isinstance(age_range['min_age'], int) or
-            not isinstance(age_range['max_age'], int) or
-            not (18 <= age_range['min_age'] <= age_range['max_age'] <= 100)):
-            return False, "Invalid age_range. It should be a dictionary with two keys: \
-                'min_age' and 'max_age', both integers, \
-                    where 18 <= min_age <= max_age <= 100."
-    if 'coordinates' in data:
+    Expected format:
+    {
+        "age_min": int (optional),
+        "age_max": int (optional),
+        "fame_rating_min": int (optional),
+        "fame_rating_max": int (optional),
+        "location": {
+            "latitude": float,
+            "longitude": float,
+            "radius": int (km)
+        } (optional),
+        "tags": [str] (optional),
+        "gender": str (optional),
+        "sexual_preferences": str (optional)
+    }
     
-        location = data['coordinates']
-        if (not isinstance(location, dict) or
-            'latitude' not in location or 'longitude' not in location or
-            not isinstance(location['latitude'], (int, float)) or
-            not isinstance(location['longitude'], (int, float)) or
-            not (-90 <= location['latitude'] <= 90) or
-            not (-180 <= location['longitude'] <= 180)):
-            return False, "Invalid location. It should be a dictionary with 'latitude' and 'longitude' keys having valid float values."
+    Returns:
+        tuple: (bool, str) - (is_valid, error_message)
+    """
+    if not search_data:
+        return True, "No filters applied"  # Empty search is valid
+    
+    if not isinstance(search_data, dict):
+        return False, "Search data must be a dictionary"
+    
+    # Validate age filters
+    if 'age_min' in search_data:
+        if not isinstance(search_data['age_min'], int) or search_data['age_min'] < 18:
+            return False, "'age_min' must be an integer >= 18"
+    
+    if 'age_max' in search_data:
+        if not isinstance(search_data['age_max'], int) or search_data['age_max'] > 100:
+            return False, "'age_max' must be an integer <= 100"
+    
+    if 'age_min' in search_data and 'age_max' in search_data:
+        if search_data['age_min'] > search_data['age_max']:
+            return False, "'age_min' cannot be greater than 'age_max'"
+    
+    # Validate fame rating filters
+    if 'fame_rating_min' in search_data:
+        if not isinstance(search_data['fame_rating_min'], (int, float)) or search_data['fame_rating_min'] < 0:
+            return False, "'fame_rating_min' must be a number >= 0"
+    
+    if 'fame_rating_max' in search_data:
+        if not isinstance(search_data['fame_rating_max'], (int, float)) or search_data['fame_rating_max'] > 100:
+            return False, "'fame_rating_max' must be a number <= 100"
+    
+    if 'fame_rating_min' in search_data and 'fame_rating_max' in search_data:
+        if search_data['fame_rating_min'] > search_data['fame_rating_max']:
+            return False, "'fame_rating_min' cannot be greater than 'fame_rating_max'"
+    
+    # Validate location filter
+    if 'location' in search_data:
+        location = search_data['location']
         
-        if 'distance' not in data:
-            return False, "If 'coordinates' is provided, 'distance' must also be provided."
-        distance = data['distance']
-        if not isinstance(distance, int) or distance < 0:
-            return False, "Invalid distance. It should be a non-negative integer."
-
-    elif 'location' in data:
-        location = data['location']
-        if not isinstance(location, dict) or len(location) != 2 or \
-            'city' not in location or 'country' not in location or \
-            not all(isinstance(location[key], str) and location[key].strip() for key in location):
-            return False, "Invalid location. It should be a dictionary with 'city' and 'country' keys having non-empty string values."
-
-    if 'fame_rating' in data:
-        fame_rating = data['fame_rating']
-        if not isinstance(fame_rating, dict) or 'max' not in fame_rating or \
-           not isinstance(fame_rating['max'], int) or fame_rating['max'] < 0 or \
-           ('min' in fame_rating and (not isinstance(fame_rating['min'], int) or \
-               fame_rating['min'] < 0 or fame_rating['min'] > fame_rating['max'] )):
-            return False, "Invalid fame_rating. It should be a non-negative integer."   
+        if not isinstance(location, dict):
+            return False, "'location' must be a dictionary"
+        
+        required_location_fields = ['latitude', 'longitude', 'radius']
+        for field in required_location_fields:
+            if field not in location:
+                return False, f"'location.{field}' is required"
+        
+        if not isinstance(location['latitude'], (int, float)) or not (-90 <= location['latitude'] <= 90):
+            return False, "'location.latitude' must be a number between -90 and 90"
+        
+        if not isinstance(location['longitude'], (int, float)) or not (-180 <= location['longitude'] <= 180):
+            return False, "'location.longitude' must be a number between -180 and 180"
+        
+        if not isinstance(location['radius'], (int, float)) or location['radius'] <= 0:
+            return False, "'location.radius' must be a positive number"
     
+    # Validate tags filter
+    if 'tags' in search_data:
+        if not isinstance(search_data['tags'], list):
+            return False, "'tags' must be a list"
+        
+        if not all(isinstance(tag, str) and tag.strip() for tag in search_data['tags']):
+            return False, "'tags' must be a list of non-empty strings"
     
-    if 'interests' in data:
-        interests = data['interests']
-        if not isinstance(interests, list) or not all(isinstance(interest, str) for interest in interests):
-            return False, "Invalid interests. It should be a list of strings."
+    # Validate gender filter
+    if 'gender' in search_data:
+        valid_genders = ['male', 'female', 'other']
+        if search_data['gender'] not in valid_genders:
+            return False, f"'gender' must be one of: {', '.join(valid_genders)}"
     
-
-    return True, "Valid search data."
+    # Validate sexual preferences filter
+    if 'sexual_preferences' in search_data:
+        valid_preferences = ['male', 'female', 'both']
+        if search_data['sexual_preferences'] not in valid_preferences:
+            return False, f"'sexual_preferences' must be one of: {', '.join(valid_preferences)}"
+    
+    return True, "Valid search data"

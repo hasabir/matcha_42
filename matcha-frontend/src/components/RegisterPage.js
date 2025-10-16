@@ -112,71 +112,156 @@ const RegisterPage = () => {
 
   return (
     <div className="register-container">
-      <div className="form-wrapper">
-        <h1>Create your account</h1>
-
-        <form className="register-form" onSubmit={handleSubmit} noValidate>
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            autoComplete="email"
-          />
-
-          <input
-            type="text"
-            name="username"
-            placeholder="Username"
-            value={formData.username}
-            onChange={handleChange}
-            required
-            autoComplete="username"
-          />
-
-          <div className="name-fields">
-            <input
-              type="text"
-              name="first_name"
-              placeholder="First name"
-              value={formData.first_name}
-              onChange={handleChange}
-              required
-              autoComplete="given-name"
-            />
-            <input
-              type="text"
-              name="last_name"
-              placeholder="Last name"
-              value={formData.last_name}
-              onChange={handleChange}
-              required
-              autoComplete="family-name"
-            />
+      <div className="register-content">
+        {/* Left Side - Branding */}
+        <div className="register-left">
+          <div className="brand-content">
+            <div className="brand-logo">
+              <span className="logo-icon">💕</span>
+              <h2 className="brand-name">MatchUp</h2>
+            </div>
+            <h1 className="brand-title">Start Your Love Journey</h1>
+            <p className="brand-subtitle">
+              Join thousands of people finding meaningful connections and lasting relationships.
+            </p>
+            <div className="brand-features">
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span>Smart Matching Algorithm</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span>Verified Profiles</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span>Safe & Secure</span>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            autoComplete="new-password"
-          />
+        {/* Right Side - Form */}
+        <div className="register-right">
+          <div className="form-wrapper">
+            <div className="form-header">
+              <h1 className="form-title">Create Your Account</h1>
+              <p className="form-subtitle">
+                Already have an account?{" "}
+                <button 
+                  className="link-btn" 
+                  onClick={() => navigate("/signin")}
+                >
+                  Sign In
+                </button>
+              </p>
+            </div>
 
-          <button
-            type="submit"
-            className="register-btn"
-            disabled={submitting}
-          >
-            {submitting ? "Registering…" : "Register"}
-          </button>
-        </form>
+            <form className="register-form" onSubmit={handleSubmit} noValidate>
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  name="email"
+                  className="form-input"
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  autoComplete="email"
+                />
+              </div>
 
-        {status && <p className="status">{status}</p>}
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input
+                  type="text"
+                  name="username"
+                  className="form-input"
+                  placeholder="Choose a username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  autoComplete="username"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    className="form-input"
+                    placeholder="First name"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    required
+                    autoComplete="given-name"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    className="form-input"
+                    placeholder="Last name"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    required
+                    autoComplete="family-name"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  className="form-input"
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  autoComplete="new-password"
+                />
+                <span className="form-hint">
+                  Must be at least 8 characters
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-full btn-lg"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <span className="spinner-sm"></span>
+                    Creating Account...
+                  </>
+                ) : (
+                  "Create Account"
+                )}
+              </button>
+            </form>
+
+            {status && (
+              <div className={`status-message ${status.includes("email") ? "success" : "error"}`}>
+                {status}
+              </div>
+            )}
+
+            <p className="terms-text">
+              By creating an account, you agree to our{" "}
+              <a href="/terms" className="terms-link">Terms of Service</a>
+              {" "}and{" "}
+              <a href="/privacy" className="terms-link">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
