@@ -23,9 +23,13 @@ logger = logging.getLogger(__name__)
 def sort_users():
     '''sort users based on criteria
     Expects a json body with sort criteria and list of usernames.
-    Example: { "sort_by": "age" or "fame_rating" or "location" or "interests",
+    Example: { "sort_by": "age" or "fame_rating" or "location" or "interests" or "city" or "country",
     "order": "asc" or "desc",
-    "usernames": [user1, user2, user3] }'''
+    "usernames": [user1, user2, user3],
+    "max_distance_km": 100 (optional, only for location sorting) }
+    
+    Sort by city/country: Sorts users alphabetically by city or country name
+    Sort by location: Sorts users by distance from current user (requires max_distance_km)'''
     try:
         request_data = request.json
         if not request_data:
@@ -56,4 +60,4 @@ def sort_users():
 
     except Exception as e:
         logger.error(f"Error in /sort endpoint: {e}")
-        return jsonify({"error": e}), 400
+        return jsonify({"error": str(e)}), 400

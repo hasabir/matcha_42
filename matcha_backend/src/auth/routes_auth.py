@@ -1,124 +1,40 @@
-# from flask import Blueprint, g, request, jsonify, current_app01
-from flask import Blueprint, g, request, jsonify, current_app, redirect
-from itsdangerous import SignatureExpired
-from psycopg2.errors import UniqueViolation
-import datetime
-import sys
-import os
-from src.auth import auth_bp
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
-import logging
-from utils.validate_user_data import validate_user_data
-from utils.security import SecurityUtils, auth_guard
+# # from flask import Blueprint, g, request, jsonify, current_app01
+# from flask import Blueprint, g, request, jsonify, current_app, redirect
+# from itsdangerous import SignatureExpired
+# from psycopg2.errors import UniqueViolation
+# import datetime
+# import sys
+# import os
+# from src.auth import auth_bp
+# sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
+# import logging
+# from utils.security import SecurityUtils
 
-from  database.crud.user_crud import User
-from database.crud.profile_crud import Profile
-from flask_bcrypt import Bcrypt
+# from  database.crud.user_crud import User
+# from database.crud.profile_crud import Profile
+# from flask_bcrypt import Bcrypt
 
-logging.basicConfig(level=logging.DEBUG)
-from utils.email_service import EmailService
-logger = logging.getLogger(__name__)
-
-
-@auth_bp.route("/register", methods=["POST"])
-def register():
-    try:
-        user_data = request.json
-        if validate_user_data(user_data) is not True:
-            return jsonify({"error": "Invalid input data, to register user must provide email, username, first_name, last_name, and password"}), 400
-        
-        logging.debug(f"@Registering user: {user_data['username']} with email: {user_data['email']}")
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        
-        user_crud = User(connection_pool)
-        
-        # Create the user first to get the user_id
-        user_crud.create_user(user_data)
-        
-        # Fetch the newly created user to get the ID
-        new_user = user_crud.get_user_by_username(user_data['username'])
-        if not new_user:
-            return jsonify({"error": "User creation failed"}), 500
-        
-        # Generate JWT-based verification token
-        token = SecurityUtils.generate_verification_token(new_user['id'])
-        
-        # Send verification email with JWT token
-        mail_service = EmailService()
-        mail_service.send_verification_email(user_data['email'], token)
-        
-        # Store the token in the database
-        user_crud.update_user({'verification_token': token}, user_data['username'])
-        
-        return jsonify({"status": "ok", "message": "Check your email to verify your account"}), 200
-        
-    except UniqueViolation as e:
-        logging.error(f"Unique constraint violation: {e}")
-        return jsonify({"error": "Username or email already exists"}), 409
-    except Exception as e:
-        logging.error(f"Error during registration: {e}")
-        return jsonify({"error": str(e), "message": "Registration failed"}), 409
-
-@auth_bp.route('/resend_verification', methods=["POST"])
-def resend_verification():
-    try:
-        user_data = request.json
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        
-        user_crud = User(connection_pool)
-        user = user_crud.get_user_by_username(username=user_data["username"])
-        if not user:
-            return jsonify({"error": "user is not signed up"}), 401
-        if user["verified"]:
-            return jsonify({"error": "You're already verified"}), 409
-
-        # Generate a new verification token and build a URL to your front-end
-        mail_service = EmailService()
-        token = SecurityUtils.generate_verification_token(user['id'])
-        verification_url = f"http://localhost:3000/verify/{token}"
-
-        # Send the verification link in the email (update EmailService accordingly)
-        mail_service.send_verification_email(user_data['email'], verification_url)
-        # Save the token in your DB
-        user_crud.update_user({'verification_token': token}, user_data['username'])
-
-        return jsonify({
-            "status": "ok",
-            "message": "Check your e‑mail to verify your account"
-        }), 200
-
-    except UniqueViolation as e:
-        logging.error(f"Unique constraint violation: {e}")
-        return jsonify({"error": "username or email already exists"}), 409
-    except Exception as e:
-        logging.error(f"Error during registration: {e}")
-        return jsonify({"error": str(e), "message": "Resend verification failed"}), 409
+# logging.basicConfig(level=logging.DEBUG)
+# from utils.email_service import EmailService
+# logger = logging.getLogger(__name__)
 
 
-# @auth_bp.route('/resend_verification', methods=["POST"])
-# def resend_verification():
+# @auth_bp.route("/register", methods=["POST"])
+# def register():
 #     try:
 #         user_data = request.json
+#         # print("\033[92mUser data:\033[0m", user_data)
+#         logging.debug(f"@Registering user: {user_data['username']} with email: {user_data['email']}")
 #         connection_pool = current_app.config["CONNECTION_POOL"]
         
 #         if not connection_pool:
 #             return jsonify({"error": "Database connection pool is not available"}), 500
         
 #         user_crud = User(connection_pool)
-        
-#         user = user_crud.get_user_by_username(username=user_data["username"])
-#         if not user:
-#             return jsonify({"error": "user is not signed up"}), 401
-        
-#         if user["verified"]:
-#             return jsonify({"error":"You're already verified"}), 409
+#         # print("\033[93mExecuting query:\033[0m")
         
 #         mail_service = EmailService()
+#         user_crud.create_user(user_data)
 #         token = mail_service.send_verification_email(user_data['email'], "email_verification")
 #         user_crud.update_user({'verification_token': token}, user_data['username'])
 #         return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
@@ -129,204 +45,525 @@ def resend_verification():
 #         logging.error(f"Error during registration: {e}")
 #         return jsonify({"error": str(e), "message": "Registration failed"}), 409
 
+# @auth_bp.route('/resend_verification', methods=["POST"])
+# def resend_verification():
+#     try:
+#         user_data = request.json
+#         connection_pool = current_app.config["CONNECTION_POOL"]
+#         if not connection_pool:
+#             return jsonify({"error": "Database connection pool is not available"}), 500
+        
+#         user_crud = User(connection_pool)
+#         user = user_crud.get_user_by_username(username=user_data["username"])
+#         if not user:
+#             return jsonify({"error": "user is not signed up"}), 401
+#         if user["verified"]:
+#             return jsonify({"error": "You're already verified"}), 409
 
+#         # Generate a new verification token and build a URL to your front-end
+#         mail_service = EmailService()
+#         token = SecurityUtils.generate_verification_token(user['id'])
+#         verification_url = f"http://localhost:3000/verify/{token}"
+
+#         # Send the verification link in the email (update EmailService accordingly)
+#         mail_service.send_verification_email(user_data['email'], verification_url)
+#         # Save the token in your DB
+#         user_crud.update_user({'verification_token': token}, user_data['username'])
+
+#         return jsonify({
+#             "status": "ok",
+#             "message": "Check your e‑mail to verify your account"
+#         }), 200
+
+#     except UniqueViolation as e:
+#         logging.error(f"Unique constraint violation: {e}")
+#         return jsonify({"error": "username or email already exists"}), 409
+#     except Exception as e:
+#         logging.error(f"Error during registration: {e}")
+#         return jsonify({"error": str(e), "message": "Resend verification failed"}), 409
+
+
+# # @auth_bp.route('/resend_verification', methods=["POST"])
+# # def resend_verification():
+# #     try:
+# #         user_data = request.json
+# #         connection_pool = current_app.config["CONNECTION_POOL"]
+        
+# #         if not connection_pool:
+# #             return jsonify({"error": "Database connection pool is not available"}), 500
+        
+# #         user_crud = User(connection_pool)
+        
+# #         user = user_crud.get_user_by_username(username=user_data["username"])
+# #         if not user:
+# #             return jsonify({"error": "user is not signed up"}), 401
+        
+# #         if user["verified"]:
+# #             return jsonify({"error":"You're already verified"}), 409
+        
+# #         mail_service = EmailService()
+# #         token = mail_service.send_verification_email(user_data['email'], "email_verification")
+# #         user_crud.update_user({'verification_token': token}, user_data['username'])
+# #         return jsonify({"status": "ok", "message": "check you're email to verify your account", "token" : token}), 200
+# #     except UniqueViolation as e:
+# #         logging.error(f"Unique constraint violation: {e}")
+# #         return jsonify({"error": "username or email already exists"}), 409
+# #     except Exception as e:
+# #         logging.error(f"Error during registration: {e}")
+# #         return jsonify({"error": str(e), "message": "Registration failed"}), 409
+
+
+
+# # @auth_bp.route('/confirm_email/<token>')
+# # def confirm_email(token):
+# #     try:
+# #         connection_pool = current_app.config["CONNECTION_POOL"]
+# #         user_crud = User(connection_pool)
+    
+# #         user_data = user_crud.get_user_by_token(token)
+# #         if not user_data:
+# #             return jsonify({"error": "Token invalide or expired"}), 400
+# #         logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
+
+# #         mail_service = EmailService()
+
+# #         mail_service = mail_service.confirm_email(token)
+# #         user_crud.update_user({'verification_token': None,
+# #                                'verified': True,
+# #                                'active': True}, user_data['username'])
+# #         access_token = SecurityUtils.generate_access_token(user_data['id'])
+# #         refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
+        
+# #         response = jsonify({
+# #             "message": "Email verified successfully",
+# #             "access_token": access_token,
+# #             "user_id": user_data['id'],
+# #             "username": user_data['username']
+# #         })
+# #         response.set_cookie(
+# #             'refresh_token',
+# #             refresh_token,
+# #             httponly=True,
+# #             samesite='Strict'
+# #         )
+# #         return response, 200
+# #     except SignatureExpired:
+# #         return jsonify({"error": "Token expired"}), 400
+# #     except Exception as e:
+# #         return jsonify({"error": e}), 400
 
 # @auth_bp.route('/confirm_email/<token>')
 # def confirm_email(token):
 #     try:
 #         connection_pool = current_app.config["CONNECTION_POOL"]
 #         user_crud = User(connection_pool)
-    
+
 #         user_data = user_crud.get_user_by_token(token)
 #         if not user_data:
-#             return jsonify({"error": "Token invalide or expired"}), 400
-#         logger.error(f"❌ Failed to retreave username -> {user_data["username"]}")
+#             return jsonify({"error": "Token invalid or expired"}), 400
 
-#         mail_service = EmailService()
+#         # Mark user as verified/active and clear the token
+#         user_crud.update_user({
+#             'verification_token': None,
+#             'verified': True,
+#             'active': True
+#         }, user_data['username'])
 
-#         mail_service = mail_service.confirm_email(token)
-#         user_crud.update_user({'verification_token': None,
-#                                'verified': True,
-#                                'active': True}, user_data['username'])
-#         access_token = SecurityUtils.generate_access_token(user_data['id'])
+#         # Optionally generate tokens and set a cookie
 #         refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
+#         response = redirect('http://localhost:3000/signin')
+#         response.set_cookie('refresh_token', refresh_token,
+#                             httponly=True, samesite='Strict')
+#         return response  # status code 302 by default
+
+#     except SignatureExpired:
+#         return jsonify({"error": "Token expired"}), 400
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 400
+
+# @auth_bp.route('/login', methods=['POST'])
+# def login():
+#     try:
+#         user_data = request.json
+#         response = jsonify({"status": "ok"})
+#         connection_pool = current_app.config["CONNECTION_POOL"]
+#         # print("\033[91mExecuting query:\033[0m", current_app.config["JWT_ACCESS_TOKEN_EXPIRES"])
+
+#         if not connection_pool:
+#             return jsonify({"error": "Database connection pool is not available"}), 500
         
-#         response = jsonify({
-#             "message": "Email verified successfully",
-#             "access_token": access_token,
-#             "user_id": user_data['id'],
-#             "username": user_data['username']
-#         })
+#         user_crud = User(connection_pool)
+        
+#         user = user_crud.get_user_by_username(user_data['username'])
+        
+#         if not user or not SecurityUtils.password_check(user['password'], user_data['password']):
+#             return jsonify({"error": "Invalid username or password"}), 401
+        
+        
+#         # Generate tokens
+#         access_token = SecurityUtils.generate_access_token(user['id'])
+#         refresh_token = SecurityUtils.generate_refresh_token(user['id'])
+        
+#         # Send access token in JSON, refresh token as secure cookie
+#         response = jsonify({'access_token': access_token})
 #         response.set_cookie(
 #             'refresh_token',
 #             refresh_token,
 #             httponly=True,
+#             # secure=True,  #TODO Uncomment if we are using HTTPS
 #             samesite='Strict'
 #         )
-#         return response, 200
-#     except SignatureExpired:
-#         return jsonify({"error": "Token expired"}), 400
+#         user_crud.update_user(
+#                         {"last_seen": datetime.datetime.utcnow(),
+#                          "active": True},
+#                         user_data["username"])
 #     except Exception as e:
-#         return jsonify({"error": e}), 400
+#         logging.error(f"Error during login: {e}")
+#         return jsonify({"error": str(e), "message": "Login failed"}), 400
+
+#     return response
+
+
+
+
+# @auth_bp.route('/users', methods=['GET'])
+# def get_all_users():
+#     logging.info("*********************Fetching all users**********")
+#     connection_pool = current_app.config["CONNECTION_POOL"]
+#     if not connection_pool:
+#         return jsonify({"error": "Database connection pool is not available"}), 500
+#     user_crud = User(connection_pool)
+#     result = user_crud.get_all_users()
+#     return jsonify({"status": "ok", "data": result}), 200
+
+
+# # in your auth routes file
+# @auth_bp.route('/refresh', methods=['POST'])
+# def refresh():
+#     try:
+#         refresh_token = request.cookies.get('refresh_token')
+#         if not refresh_token:
+#             return jsonify({'error': 'Missing refresh token'}), 401
+
+#         payload = SecurityUtils.verify_refresh_token(refresh_token)
+#         if not payload or 'error' in payload:
+#             return jsonify({'error': payload.get('error', 'Invalid or expired token')}), 403
+
+#         new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
+#         return jsonify({'access_token': new_access_token}), 200
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+
+# # @auth_bp.route('/refresh')
+# # def refresh():
+# #     """Refresh access token using refresh token stored in HTTP-only cookie."""
+# #     try:
+# #         #! Get refresh token from COOKIE (automatically sent by browser)
+# #         refresh_token = request.cookies.get('refresh_token')
+        
+# #         # Verify refresh token and issue new access token
+# #         logger.info(f"👉 refresh token -> {refresh_token}")
+# #         payload = SecurityUtils.verify_jwt_token(refresh_token)
+        
+# #         if not payload or 'error' in payload:
+# #             return jsonify({'error': 'Invalid or expired token'}), 403
+# #         logger.info(f"⚡ {payload} ->")
+# #         new_access_token = SecurityUtils.generate_access_token(g.user_id)
+# #         if 'error' in payload:
+# #             return jsonify({'error': payload['error']}), 403
+# #         return jsonify({'access_token': new_access_token})
+# #     except Exception as e:
+# #         return jsonify({"error": e}), 403
+
+
+
+
+# routes_auth.py
+from flask import Blueprint, g, request, jsonify, current_app, redirect, make_response
+from itsdangerous import SignatureExpired
+from psycopg2 import IntegrityError
+from psycopg2.errors import UniqueViolation
+import datetime
+import sys
+import os
+import logging
+
+from src.auth import auth_bp
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
+
+from utils.security import SecurityUtils, auth_guard
+from database.crud.user_crud import User
+from utils.email_service import EmailService
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
+@auth_bp.route("/register", methods=["POST"])
+def register():
+  """
+  Create user if username/email not already used.
+  - Returns 409 if username or email exists (no email sent, no redirect).
+  - On success: creates user, sends verification email, stores token, returns 200.
+  """
+  try:
+    user_data = request.get_json(force=True) or {}
+    required = ("email", "username", "first_name", "last_name", "password")
+    missing = [k for k in required if not str(user_data.get(k, "")).strip()]
+    if missing:
+      return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
+    email = user_data["email"].strip()
+    username = user_data["username"].strip()
+    password = user_data.get("password", "")
+
+    logging.debug(f"@Registering user: {username} with email: {email}")
+
+    # Validate email format and domain
+    from utils.validate_user_data import validate_email
+    is_valid_email, email_error = validate_email(email)
+    if not is_valid_email:
+      return jsonify({"error": email_error}), 400
+
+    # Validate password strength against common passwords
+    from utils.common_passwords import validate_password_strength
+    is_valid, error_msg = validate_password_strength(password, username, email)
+    if not is_valid:
+      return jsonify({"error": error_msg}), 400
+
+    connection_pool = current_app.config.get("CONNECTION_POOL")
+    if not connection_pool:
+      return jsonify({"error": "Database connection pool is not available"}), 500
+
+    user_crud = User(connection_pool)
+
+    # --- Early existence checks (avoid sending email/update on duplicates)
+    existing_by_username = user_crud.get_user_by_username(username=username)
+    if existing_by_username:
+      return jsonify({"error": "username already exists"}), 409
+
+    # Implement get_user_by_email in your User CRUD if missing
+    if hasattr(user_crud, "get_user_by_email"):
+      existing_by_email = user_crud.get_user_by_email(email=email)
+      if existing_by_email:
+        return jsonify({"error": "email already exists"}), 409
+
+    # ❌ Removed password hashing here
+    # Password will be hashed inside User.create_user()
+
+    # --- Create user (this must RAISE on unique violations)
+    user_crud.create_user(user_data)
+
+    # --- Only after successful insert: send verification email and save token
+    mail_service = EmailService()
+    token = mail_service.send_verification_email(email, "email_verification")
+
+    user_crud.update_user({'verification_token': token}, username)
+
+    return jsonify({
+      "status": "ok",
+      "message": "check your email to verify your account"
+    }), 200
+
+  except (UniqueViolation, IntegrityError) as e:
+    # In case of a race, DB unique constraint still wins
+    logger.error(f"Unique constraint violation: {e}")
+    return jsonify({"error": "username or email already exists"}), 409
+  except Exception as e:
+    logger.exception("Error during registration")
+    return jsonify({"error": str(e), "message": "Registration failed"}), 409
+
+
+@auth_bp.route('/resend_verification', methods=["POST"])
+def resend_verification():
+  try:
+    user_data = request.get_json(force=True) or {}
+    username = (user_data.get("username") or "").strip()
+    email = (user_data.get("email") or "").strip()
+
+    connection_pool = current_app.config.get("CONNECTION_POOL")
+    if not connection_pool:
+      return jsonify({"error": "Database connection pool is not available"}), 500
+
+    user_crud = User(connection_pool)
+    user = user_crud.get_user_by_username(username=username)
+    if not user:
+      return jsonify({"error": "user is not signed up"}), 401
+    if user.get("verified"):
+      return jsonify({"error": "You're already verified"}), 409
+
+    mail_service = EmailService()
+    token = SecurityUtils.generate_verification_token(user['id'])
+
+    mail_service.send_verification_email(email or user['email'], token)
+    user_crud.update_user({'verification_token': token}, username)
+
+    return jsonify({"status": "ok", "message": "Check your e-mail to verify your account"}), 200
+
+  except (UniqueViolation, IntegrityError) as e:
+    logger.error(f"Unique constraint violation: {e}")
+    return jsonify({"error": "username or email already exists"}), 409
+  except Exception as e:
+    logger.exception("Error during resend_verification")
+    return jsonify({"error": str(e), "message": "Resend verification failed"}), 409
+
 
 @auth_bp.route('/confirm_email/<token>')
 def confirm_email(token):
-    try:
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        user_crud = User(connection_pool)
+  try:
+    connection_pool = current_app.config.get("CONNECTION_POOL")
+    if not connection_pool:
+      return jsonify({"error": "Database connection pool is not available"}), 500
 
-        user_data = user_crud.get_user_by_token(token)
-        if not user_data:
-            return jsonify({"error": "Token invalid or expired"}), 400
+    user_crud = User(connection_pool)
+    user_data = user_crud.get_user_by_token(token)
+    if not user_data:
+      return jsonify({"error": "Token invalid or expired"}), 400
 
-        # Mark user as verified/active and clear the token
-        user_crud.update_user({
-            'verification_token': None,
-            'verified': True,
-            'active': True
-        }, user_data['username'])
+    user_crud.update_user({
+      'verification_token': None,
+      'verified': True,
+      'active': True
+    }, user_data['username'])
 
-        # Optionally generate tokens and set a cookie
-        refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
-        response = redirect('http://localhost:3000/signin')
-        response.set_cookie('refresh_token', refresh_token,
-                            httponly=True, samesite='Strict')
-        return response  # status code 302 by default
+    refresh_token = SecurityUtils.generate_refresh_token(user_data['id'])
+    response = redirect('http://localhost:3000/signin')
+    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict')
+    return response
 
-    except SignatureExpired:
-        return jsonify({"error": "Token expired"}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+  except SignatureExpired:
+    return jsonify({"error": "Token expired"}), 400
+  except Exception as e:
+    logger.exception("confirm_email failed")
+    return jsonify({"error": str(e)}), 400
+
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    try:
-        user_data = request.json
-        response = jsonify({"status": "ok"})
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        # print("\033[91mExecuting query:\033[0m", current_app.config["JWT_ACCESS_TOKEN_EXPIRES"])
+  try:
+    user_data = request.get_json(force=True) or {}
+    connection_pool = current_app.config.get("CONNECTION_POOL")
+    if not connection_pool:
+      return jsonify({"error": "Database connection pool is not available"}), 500
 
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        
-        user_crud = User(connection_pool)
-        
-        user = user_crud.get_user_by_username(user_data['username'])
-        
-        if not user or not SecurityUtils.password_check(user['password'], user_data['password']):
-            return jsonify({"error": "Invalid username or password"}), 401
-        
-        
-        # Generate tokens
-        access_token = SecurityUtils.generate_access_token(user['id'])
-        refresh_token = SecurityUtils.generate_refresh_token(user['id'])
-        
-        # Send access token in JSON, refresh token as secure cookie
-        response = jsonify({'access_token': access_token})
-        response.set_cookie(
-            'refresh_token',
-            refresh_token,
-            httponly=True,
-            # secure=True,  #TODO Uncomment if we are using HTTPS
-            samesite='Strict'
-        )
-        user_crud.update_user(
-                        {"last_seen": datetime.datetime.utcnow(),
-                         "active": True},
-                        user_data["username"])
-    except Exception as e:
-        logging.error(f"Error during login: {e}")
-        return jsonify({"error": str(e), "message": "Login failed"}), 400
+    user_crud = User(connection_pool)
+    user = user_crud.get_user_by_username(user_data.get('username'))
 
+    if not user or not SecurityUtils.password_check(user['password'], user_data.get('password', '')):
+      return jsonify({"error": "Invalid username or password"}), 401
+
+    # Check if email is verified
+    if not user.get('verified', False):
+      logger.warning(f"Login attempt by unverified user: {user.get('username')}")
+      return jsonify({
+        "error": "Email not verified",
+        "message": "Please verify your email before signing in. Check your inbox for the verification link.",
+        "verified": False
+      }), 403
+
+    access_token = SecurityUtils.generate_access_token(user['id'])
+    refresh_token = SecurityUtils.generate_refresh_token(user['id'])
+
+    response = jsonify({'access_token': access_token})
+    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Strict')
+
+    user_crud.update_user(
+      {"last_seen": datetime.datetime.utcnow(), "active": True},
+      user_data["username"]
+    )
     return response
+  except Exception as e:
+    logger.exception("Error during login")
+    return jsonify({"error": str(e), "message": "Login failed"}), 400
 
+
+@auth_bp.route('/refresh', methods=['POST'])
+def refresh():
+  try:
+    refresh_token = request.cookies.get('refresh_token')
+    if not refresh_token:
+      return jsonify({'error': 'Missing refresh token'}), 401
+
+    payload = SecurityUtils.verify_refresh_token(refresh_token)
+    if not payload or 'error' in payload:
+      return jsonify({'error': payload.get('error', 'Invalid or expired token')}), 403
+
+    new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
+    return jsonify({'access_token': new_access_token}), 200
+  except Exception as e:
+    logger.exception("refresh failed")
+    return jsonify({'error': str(e)}), 500
 
 
 @auth_bp.route('/logout', methods=['POST'])
-@auth_guard
 def logout():
+    """
+    Logout user - Frontend handles token removal
+    Note: Does NOT require authentication to allow logout even with expired tokens
+    The socket 'user_logout' event should already have set the user offline
+    """
     try:
-        response = jsonify({"status": "ok", "message": "Logged out successfully"})
-        response.set_cookie('refresh_token', '', expires=0)
+        user_id = None
         
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
+        # Try to get user_id from token if present (but don't fail if invalid)
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            from utils.security import SecurityUtils
+            payload = SecurityUtils.verify_jwt_token(token)
+            if 'user_id' in payload:
+                user_id = payload['user_id']
         
-        user_crud = User(connection_pool)
-        # Get the user first to obtain the username
-        user = user_crud.get_user_by('id', g.user_id, 'username')
-        if user and 'username' in user:
-            username = user['username']['username']
-            user_crud.update_user(
-                {"active": False,
-                 "last_seen": datetime.datetime.utcnow()},
-                username)
+        # If we have a valid user_id from token, ensure offline status is set
+        # (This is a backup - the socket 'user_logout' event should have already done this)
+        if user_id:
+            connection_pool = current_app.config.get("CONNECTION_POOL")
+            if connection_pool:
+                from database.crud.user_crud import User
+                user_crud = User(connection_pool)
+                user_crud.set_user_online(user_id, False)
+                logger.info(f"✅ User {user_id} set to offline on logout (backup)")
+                
+                # Clear all Redis socket sessions for this user
+                from utils.redis_manager import redis_manager
+                redis_manager.remove_user_session(user_id, socket_id=None)
+                logger.info(f"🧹 Cleared all Redis sessions for user {user_id} on logout")
+                
+                # Broadcast offline status to all connected clients
+                from datetime import datetime, timezone
+                socketio = current_app.config.get("SOCKETIO")
+                if socketio:
+                    status_payload = {
+                        'user_id': user_id,
+                        'is_online': False,
+                        'last_seen': datetime.now(timezone.utc).isoformat()
+                    }
+                    socketio.emit('user_status_changed', status_payload, broadcast=True)
+                    logger.info(f"📢 Broadcasted offline status for user {user_id} on logout")
+        
+        response = make_response(jsonify({
+            "message": "Logged out successfully",
+            "success": True
+        }), 200)
+        
+        # Clear the refresh token cookie if it exists
+        response.set_cookie(
+            'refresh_token',
+            '',
+            httponly=True,
+            secure=True,
+            samesite='Lax',
+            max_age=0
+        )
+        
         return response
-    except Exception as e:
-        logging.error(f"Error during logout: {e}")
-        return jsonify({"error": str(e), "message": "Logout failed"}), 400
-
-@auth_bp.route('/delete_user', methods=['DELETE'])
-@auth_guard
-def delete_user():
-    try:
-        # check if user is authenticated
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        if not connection_pool:
-            return jsonify({"error": "Database connection pool is not available"}), 500
-        user_crud = User(connection_pool)
-        user_crud.delete_user(g.user_id)
-        return jsonify({"status": "ok", "message": "User deleted successfully"}), 200
-    except Exception as e:
-        logging.error(f"Error during user deletion: {e}")
-        return jsonify({"error": str(e), "message": "User deletion failed"}), 400
-
-@auth_bp.route('/users', methods=['GET'])
-def get_all_users():
-    logging.info("*********************Fetching all users**********")
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    if not connection_pool:
-        return jsonify({"error": "Database connection pool is not available"}), 500
-    user_crud = User(connection_pool)
-    result = user_crud.get_all_users()
-    return jsonify({"status": "ok", "data": result}), 200
-
-
-# in your auth routes file
-@auth_bp.route('/refresh', methods=['POST'])
-def refresh():
-    try:
-        refresh_token = request.cookies.get('refresh_token')
-        if not refresh_token:
-            return jsonify({'error': 'Missing refresh token'}), 401
-
-        payload = SecurityUtils.verify_refresh_token(refresh_token)
-        if not payload or 'error' in payload:
-            return jsonify({'error': payload.get('error', 'Invalid or expired token')}), 403
-
-        new_access_token = SecurityUtils.generate_access_token(payload['user_id'])
-        return jsonify({'access_token': new_access_token}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# @auth_bp.route('/refresh')
-# def refresh():
-#     """Refresh access token using refresh token stored in HTTP-only cookie."""
-#     try:
-#         #! Get refresh token from COOKIE (automatically sent by browser)
-#         refresh_token = request.cookies.get('refresh_token')
         
-#         # Verify refresh token and issue new access token
-#         logger.info(f"👉 refresh token -> {refresh_token}")
-#         payload = SecurityUtils.verify_jwt_token(refresh_token)
-        
-#         if not payload or 'error' in payload:
-#             return jsonify({'error': 'Invalid or expired token'}), 403
-#         logger.info(f"⚡ {payload} ->")
-#         new_access_token = SecurityUtils.generate_access_token(g.user_id)
-#         if 'error' in payload:
-#             return jsonify({'error': payload['error']}), 403
-#         return jsonify({'access_token': new_access_token})
-#     except Exception as e:
-#         return jsonify({"error": e}), 403
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
+        # Still return success even if there's an error - logout should always work
+        response = make_response(jsonify({
+            "message": "Logged out successfully",
+            "success": True
+        }), 200)
+        response.set_cookie('refresh_token', '', httponly=True, secure=True, samesite='Lax', max_age=0)
+        return response

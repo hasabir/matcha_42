@@ -103,21 +103,36 @@ body {
 
 /* Containers */
 .container {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 var(--spacing-lg);
+  box-sizing: border-box;
 }
 
 .container-narrow {
+  width: 100%;
   max-width: 800px;
   margin: 0 auto;
   padding: 0 var(--spacing-lg);
+  box-sizing: border-box;
 }
 
 .container-wide {
-  max-width: 1400px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0 var(--spacing-lg);
+  box-sizing: border-box;
+}
+
+/* Full-width utility */
+.container-full {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+  box-sizing: border-box;
 }
 
 /* Gradients */
@@ -465,11 +480,27 @@ body {
   .hide-mobile {
     display: none !important;
   }
+  
+  .container,
+  .container-narrow,
+  .container-wide,
+  .container-full {
+    padding: 0 var(--spacing-md);
+  }
 }
 
 @media (min-width: 769px) {
   .hide-desktop {
     display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .container,
+  .container-narrow,
+  .container-wide,
+  .container-full {
+    padding: 0 var(--spacing-sm);
   }
 }
 

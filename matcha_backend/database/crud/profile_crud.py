@@ -131,18 +131,19 @@ class Profile(DBManager):
         return result[0]['visited_at'] if result else None
 
     def get_profile_views(self, user_id):
-        result = self.select('visits', "visitor_id", where="visited_id = %s", where_params=(user_id,))
-        return [visit['visitor_id'] for visit in result]
+        result = self.select('visits', "visitor_id, visited_at", where="visited_id = %s", where_params=(user_id,))
+        return result
 
 
     def update_profile_vist_timestamp(self, visitor_id, visited_id):
-        return self.insert(
-            table='visits', 
-            data={"visitor_id": visitor_id, "visited_id": visited_id},
-            on_conflict="update",
-            conflict_target=["visitor_id", "visited_id"],
-            update_set={"visited_at": sql.SQL("CURRENT_TIMESTAMP")}
-        )
+        # For visits table, we want to update the visited_at timestamp to current time
+        # Use raw SQL execution since we need CURRENT_TIMESTAMP function
+        query = """
+            UPDATE visits 
+            SET visited_at = CURRENT_TIMESTAMP 
+            WHERE visitor_id = %s AND visited_id = %s
+        """
+        return self.execute(query, (visitor_id, visited_id))
 
     def get_fame_rating(self, user_id):
         try:
@@ -156,4 +157,73 @@ class Profile(DBManager):
         try:
             self.update('profiles', {"fame_rating": new_rating}, where="user_id = %s", where_params=(user_id,))
         except Exception as e:
+            raise Exception(e)
+    
+    def increment_profile_views(self, user_id):
+        """Increment the profile views counter for a user"""
+        try:
+            query = """
+                UPDATE profiles 
+                SET profile_views = profile_views + 1 
+                WHERE user_id = %s
+            """
+            self.execute(query, (user_id,))
+            return True
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error incrementing profile views: {str(e)}")
+            raise Exception(e)
+    
+    def get_profile_views_count(self, user_id):
+        """Get the total profile views count for a user"""
+        try:
+            result = self.select('profiles', "profile_views", where="user_id = %s", where_params=(user_id,))
+            return result[0]['profile_views'] if result else 0
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error getting profile views count: {str(e)}")
+            raise Exception(e)
+    
+    def increment_matches_count(self, user_id):
+        """Increment the matches counter for a user"""
+        try:
+            query = """
+                UPDATE profiles 
+                SET matches_count = matches_count + 1 
+                WHERE user_id = %s
+            """
+            self.execute(query, (user_id,))
+            return True
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error incrementing matches count: {str(e)}")
+            raise Exception(e)
+    
+    def decrement_matches_count(self, user_id):
+        """Decrement the matches counter for a user (when unmatching)"""
+        try:
+            query = """
+                UPDATE profiles 
+                SET matches_count = GREATEST(matches_count - 1, 0)
+                WHERE user_id = %s
+            """
+            self.execute(query, (user_id,))
+            return True
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error decrementing matches count: {str(e)}")
+            raise Exception(e)
+    
+    def get_profile_likes(self, user_id):
+        """Get all users who liked this profile"""
+        try:
+            query = """
+                SELECT u.id, u.username, u.first_name, u.last_name, 
+                       p.profile_picture, l.liked_at
+                FROM likes l
+                JOIN users u ON l.liker_id = u.id
+                LEFT JOIN profiles p ON u.id = p.user_id
+                WHERE l.liked_id = %s
+                ORDER BY l.liked_at DESC
+            """
+            result = self.execute(query, (user_id,))
+            return result if result else []
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error getting profile likes: {str(e)}")
             raise Exception(e)

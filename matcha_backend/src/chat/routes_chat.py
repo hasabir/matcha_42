@@ -55,8 +55,8 @@ def get_chat_history():
         
         # Prevent self-chat
         current_user_crud = User(connection_pool)
-        current_user_data = current_user_crud.get_user_by('id', g.user_id, '*')
-        if current_user_data and 'id' in current_user_data and current_user_data.get("username") == other_username:
+        current_user_data = current_user_crud.get_user_by_id(g.user_id)
+        if current_user_data and current_user_data.get("username") == other_username:
             return jsonify({"error": "Cannot chat with yourself"}), 400
         
         user_crud = User(connection_pool)
@@ -75,9 +75,17 @@ def get_chat_history():
         # Check for blocks
         interactions_crud = Interactions(connection_pool, g.user_id, other_user_id)
         if interactions_crud.is_blocked():
-            return jsonify({"error": "You cannot access this chat"}), 403
+            return jsonify({
+                "error": "This user has blocked you",
+                "blocked": True,
+                "blocked_by": "other"
+            }), 403
         if interactions_crud.did_i_block():
-            return jsonify({"error": "You have blocked this user"}), 403
+            return jsonify({
+                "error": "You have blocked this user",
+                "blocked": True,
+                "blocked_by": "me"
+            }), 403
         
         # Validate pagination parameters
         try:
@@ -111,4 +119,35 @@ def get_chat_history():
         return jsonify({
             'success': False,
             'error': 'An error occurred while fetching chat history'
+        }), 500
+
+
+@chat_bp.route("/unread_count", methods=["GET"])
+@auth_guard
+def get_unread_count():
+    """Get count of unread messages for the authenticated user"""
+    try:
+        # Get database connection
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            logger.error("Database connection pool is not available")
+            return jsonify({"error": "Service unavailable"}), 503
+        
+        # Fetch unread count
+        chat_crud = Chat(connection_pool)
+        unread_count = chat_crud.get_unread_message_count(g.user_id)
+        
+        logger.info(f"✅ User {g.user_id} has {unread_count} unread messages")
+        
+        return jsonify({
+            'success': True,
+            'unread_count': unread_count
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching unread count: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while fetching unread count',
+            'unread_count': 0
         }), 500

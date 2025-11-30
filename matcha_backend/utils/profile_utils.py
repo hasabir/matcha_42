@@ -11,13 +11,14 @@ from database.crud.location_crud import Location
 logger = logging.getLogger(__name__)
 
 
-def get_profile_data(connection_pool, user_id):
+def get_profile_data(connection_pool, user_id, include_sensitive=False):
     """
     Get comprehensive profile data for a user
     
     Args:
         connection_pool: Database connection pool
         user_id: User ID to fetch profile for
+        include_sensitive: Whether to include sensitive data like email (default: False)
     
     Returns:
         dict: Profile data including user info, profile details, images, etc.
@@ -30,8 +31,12 @@ def get_profile_data(connection_pool, user_id):
         # Get basic profile data
         profile = profile_crud.get_profile_by_user_id(user_id)
         
-        # Get user data
-        user = user_crud.get_user_by('id', user_id, 'username, first_name, last_name, email, active, last_seen')
+        # Get user data - exclude password always
+        if include_sensitive:
+            user = user_crud.get_user_by('id', user_id, 'username, first_name, last_name, email, active, last_seen')
+        else:
+            # Exclude email and other sensitive data when viewing other users
+            user = user_crud.get_user_by('id', user_id, 'username, first_name, last_name, active, last_seen')
         
         # Get user images
         images = profile_crud.get_images(user_id)
@@ -45,11 +50,12 @@ def get_profile_data(connection_pool, user_id):
         # Combine all data - flatten user data to top level
         profile_data = {
             **(profile if profile else {}),
+            # Ensure user_id is always present
+            'user_id': user_id,
             # Flatten user fields to top level for frontend compatibility
             'username': user.get('username') if user else None,
             'first_name': user.get('first_name') if user else None,
             'last_name': user.get('last_name') if user else None,
-            'email': user.get('email') if user else None,
             'active': user.get('active') if user else False,
             'last_seen': user.get('last_seen') if user else None,
             'images': images if images else [],
@@ -60,6 +66,10 @@ def get_profile_data(connection_pool, user_id):
             'latitude': location.get('latitude') if location else None,
             'longitude': location.get('longitude') if location else None,
         }
+        
+        # Only include email if sensitive data is requested
+        if include_sensitive and user:
+            profile_data['email'] = user.get('email')
         
         return profile_data
         

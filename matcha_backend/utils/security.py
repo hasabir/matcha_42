@@ -26,6 +26,7 @@ class SecurityUtils:
     
     
     
+    @staticmethod
     def generate_refresh_token(user_id):
         #! HTTP-only Cookie (withcredentials = true) for refresh token
         token = jwt.encode(
@@ -38,6 +39,7 @@ class SecurityUtils:
         )
         return token
     
+    @staticmethod
     def generate_access_token(user_id):
         #! Authorization Header
         token = jwt.encode(
@@ -104,6 +106,7 @@ def auth_guard(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
+            logging.debug(f"🔒 Auth failed for {request.path}: Missing or invalid Authorization header")
             return jsonify({'error': 'Token is missing or invalid format'}), 401
 
         token = auth_header.split(' ')[1]
@@ -112,6 +115,7 @@ def auth_guard(f):
         payload = SecurityUtils.verify_jwt_token(token)
 
         if 'error' in payload:
+            logging.debug(f"🔒 Auth failed for {request.path}: {payload['error']}")
             return jsonify({'error': payload['error']}), 403
 
         # Attach user_id to request context

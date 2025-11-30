@@ -52,22 +52,50 @@ class Matching(DBManager):
         Returns:
             bool: True if match was created successfully
         """
+        conn = None
         try:
             # Ensure IDs are in a consistent order (smaller ID first)
             user_1 = min(user_id, other_user_id)
             user_2 = max(user_id, other_user_id)
             
-            # Insert match record (avoiding duplicates) using connections table
+            # Check if match already exists
+            existing = self.select(
+                'connections',
+                where='user1_id = %s AND user2_id = %s',
+                where_params=(user_1, user_2)
+            )
+            
+            if existing:
+                logger.debug(f"Match already exists between {user_1} and {user_2}")
+                return False
+            
+            # Insert match record using direct connection
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
             query = """
-                INSERT INTO connections (user1_id, other_user_id, connected_at)
+                INSERT INTO connections (user1_id, user2_id, connected_at)
                 VALUES (%s, %s, NOW())
-                ON CONFLICT (user1_id, other_user_id) DO NOTHING
             """
-            self.execute(query, (user_1, user_2))
+            cursor.execute(query, (user_1, user_2))
+            conn.commit()
+            
+            # Create conversation for the match
+            from database.crud.chat_crud import Chat
+            chat_crud = Chat(self.connection_pool)
+            conversation_id = chat_crud.get_or_create_conversation(user_1, user_2)
+            
+            logger.info(f"✅ Match created between {user_1} and {user_2}, conversation: {conversation_id}")
             return True
+            
         except Exception as e:
-            logger.error(f"Error creating match: {str(e)}")
+            if conn:
+                conn.rollback()
+            logger.error(f"❌ Error creating match: {str(e)}")
             return False
+        finally:
+            if conn:
+                self._return_connection(conn)
     
     def unmatche(self, user_id, other_user_id):
         """
@@ -88,7 +116,7 @@ class Matching(DBManager):
             # Delete connection record
             return self.delete(
                 'connections',
-                where='user1_id = %s AND other_user_id = %s',
+                where='user1_id = %s AND user2_id = %s',
                 where_params=(user_1, user_2)
             )
         except Exception as e:
@@ -109,11 +137,11 @@ class Matching(DBManager):
             query = """
                 SELECT 
                     CASE 
-                        WHEN user1_id = %s THEN other_user_id
+                        WHEN user1_id = %s THEN user2_id
                         ELSE user1_id
                     END as matched_user_id
                 FROM connections
-                WHERE user1_id = %s OR other_user_id = %s
+                WHERE user1_id = %s OR user2_id = %s
             """
             result = self.execute(query, (user_id, user_id, user_id), fetch=True)
             return [row['matched_user_id'] for row in result] if result else []
@@ -138,7 +166,7 @@ class Matching(DBManager):
             
             result = self.select(
                 'connections',
-                where='user1_id = %s AND other_user_id = %s',
+                where='user1_id = %s AND user2_id = %s',
                 where_params=(user_1, user_2)
             )
             return result[0] if result else None

@@ -1,271 +1,246 @@
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
-
+from flask import jsonify, request, current_app, g
 import logging
-from flask import Blueprint, g, render_template, request, jsonify, current_app
-from database.crud.notification_crud import Notification
+import traceback
 from utils.security import auth_guard
 from utils.notification_service import NotificationService
-from src.notifications import notifications_bp
+from . import notifications_bp
 
-# Create the blueprint
-# notifications_bp = Blueprint('notifications', __name__)
-
-@notifications_bp.route('/get_notifications', methods=['POST'])
+@notifications_bp.route("/get_notifications", methods=["POST", "GET"])
 @auth_guard
 def get_notifications():
-    """Get user notifications"""
+    """Retrieve all notifications for the authenticated user"""
     try:
-        request_data = request.get_json()
-        if request_data is None:
-            return jsonify({'success': False, 'error': 'Invalid JSON body'}), 400
-        if any(key not in request_data for key in ['limit', 'offset', 'seen']):
-            return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
-        user_id = g.user_id 
-        limit = int(request_data.get('limit', 20))
-        offset = int(request_data.get('offset', 0))
-        seen = request_data.get('seen', False)
-        # seen = request_data.get('seen') == True
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            logging.error("❌ Connection pool not available")
+            return jsonify({"error": "Database connection not available"}), 500
         
-        connection_pool = current_app.config["CONNECTION_POOL"]
+        user_id = g.user_id
+        
+        logging.info(f"📥 Fetching notifications for user {user_id}")
+        
         notification_service = NotificationService(connection_pool)
+        notifications = notification_service.get_notifications(user_id)
         
-        notifications = notification_service.get_user_notifications(
-            user_id, 
-            limit, 
-            offset, 
-            seen
-        )
+        logging.info(f"✅ Found {len(notifications)} notifications for user {user_id}")
         
         return jsonify({
-            'success': True,
-            'notifications': notifications,
-            'count': len(notifications)
+            "status": "success",
+            "notifications": notifications or []
         }), 200
         
+    except AttributeError as e:
+        logging.error(f"❌ AttributeError fetching notifications: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "User authentication failed",
+            "details": str(e)
+        }), 401
+        
     except Exception as e:
-        logging.error(f"❌❌❌Error fetching notifications: {e}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+        logging.error(f"❌ Error fetching notifications: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to fetch notifications",
+            "details": str(e)
+        }), 500
 
-@notifications_bp.route('/unread_count', methods=['GET'])
+
+@notifications_bp.route("/unread-count", methods=["GET"])  # Support both URL formats
+@notifications_bp.route("/unread_count", methods=["GET"])
 @auth_guard
 def get_unread_count():
-    """Get count of unread notifications"""
+    """Get count of unread notifications for the authenticated user"""
     try:
-        # user_id = g.user_id
-        user_id = 1
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        notification_service = NotificationService(connection_pool)
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            logging.error("❌ Connection pool not available")
+            return jsonify({
+                "error": "Database connection not available",
+                "unread_count": 0
+            }), 500
         
-        count = notification_service.get_unread_count(user_id)
+        user_id = g.user_id
+        
+        notification_service = NotificationService(connection_pool)
+        unread_count = notification_service.get_unread_count(user_id)
+        
+        logging.debug(f"📊 User {user_id} has {unread_count} unread notifications")
         
         return jsonify({
-            'success': True,
-            'unread_count': count
+            "status": "success",
+            "success": True,  # Added for frontend compatibility
+            "unread_count": unread_count
         }), 200
         
     except Exception as e:
-        logging.error(f"Error fetching unread count: {e}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+        logging.error(f"❌ Error getting unread count: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to get unread count",
+            "success": False,
+            "unread_count": 0
+        }), 500
 
-logger = logging.getLogger(__name__)
-@notifications_bp.route('/<int:notification_id>/mark_seen', methods=['PUT'])
+
+@notifications_bp.route("/mark_notification_seen", methods=["POST"])
 @auth_guard
-def mark_notification_seen(notification_id):
+def mark_notification_seen():
     """Mark a specific notification as seen"""
     try:
+        connection_pool = current_app.config.get("CONNECTION_POOL")
         user_id = g.user_id
         
-        connection_pool = current_app.config["CONNECTION_POOL"]
+        data = request.get_json()
+        notification_id = data.get("notification_id")
+        
+        if not notification_id:
+            return jsonify({"error": "notification_id is required"}), 400
+        
         notification_service = NotificationService(connection_pool)
-        #only mark as seen if belongs to user
-        if not notification_service.does_notification_exist(notification_id, user_id):
-            logger.info(f"❌❌❌👤👤👤Notification {notification_id} not found or access denied for user {user_id}")
+        success = notification_service.mark_as_seen(notification_id, user_id)
+        
+        if success:
+            # Emit updated unread count via Socket.IO
+            socketio = current_app.config.get("SOCKETIO")
+            if socketio:
+                unread_count = notification_service.get_unread_count(user_id)
+                socketio.emit("unread_count_updated", {
+                    "count": unread_count
+                }, room=f"user_{user_id}")
+            
             return jsonify({
-                'success': False,
-                'error': 'Notification not found or access denied'
-            }), 404
-        result = notification_service.mark_notification_seen(
-            notification_id=notification_id,
-            user_id=user_id 
-        )
-        logger.info(f"✅✅✅👤👤👤✅✅✅Marked notification {notification_id},, result = {result}")
-        if result is not None and result > 0:
-            return jsonify({
-                'success': True,
-                'message': 'Notification marked as seen'
+                "status": "success",
+                "message": "Notification marked as seen"
             }), 200
         else:
             return jsonify({
-                'success': False,
-                'error': 'Notification not found or access denied'
-            }), 404
+                "error": "Failed to mark notification as seen"
+            }), 400
             
     except Exception as e:
-        logging.error(f"Error marking notification as seen: {e}")
-        return jsonify({'success': False, 'error': {e}}), 500
-
-# @notifications_bp.route('/mark_all_seen', methods=['PUT'])
-# @auth_guard
-# def mark_all_notifications_seen():
-#     """Mark all user notifications as seen"""
-#     try:
-#         user_id = g.user_id
-        
-#         connection_pool = current_app.config["CONNECTION_POOL"]
-#         notification_service = NotificationService(connection_pool)
-        
-        
-#         result = notification_service.mark_notification_seen(user_id=user_id)
-        
-#         return jsonify({
-#             'success': True,
-#             'message': 'All notifications marked as seen',
-#             'updated_count': result
-#         }), 200
-        
-#     except Exception as e:
-#         logging.error(f"Error marking all notifications as seen: {e}")
-#         return jsonify({'success': False, 'error': 'Internal server error'}), 500
+        logging.error(f"❌ Error marking notification as seen: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to mark notification as seen",
+            "details": str(e)
+        }), 500
 
 
-@notifications_bp.route('/<int:notification_id>', methods=['DELETE'])
+@notifications_bp.route("/mark_all_seen", methods=["POST"])
 @auth_guard
-def delete_notification(notification_id):
+def mark_all_seen():
+    """Mark all notifications as seen for the authenticated user"""
+    try:
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        user_id = g.user_id
+        
+        notification_service = NotificationService(connection_pool)
+        success = notification_service.mark_all_as_seen(user_id)
+        
+        if success:
+            # Emit updated unread count via Socket.IO
+            socketio = current_app.config.get("SOCKETIO")
+            if socketio:
+                socketio.emit("unread_count_updated", {
+                    "count": 0
+                }, room=f"user_{user_id}")
+            
+            return jsonify({
+                "status": "success",
+                "message": "All notifications marked as seen"
+            }), 200
+        else:
+            return jsonify({
+                "error": "Failed to mark all notifications as seen"
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"❌ Error marking all notifications as seen: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to mark all notifications as seen",
+            "details": str(e)
+        }), 500
+
+
+@notifications_bp.route("/delete_notification", methods=["POST"])
+@auth_guard
+def delete_notification():
     """Delete a specific notification"""
     try:
+        connection_pool = current_app.config.get("CONNECTION_POOL")
         user_id = g.user_id
         
-        connection_pool = current_app.config["CONNECTION_POOL"]
-        notification_crud = Notification(connection_pool)
+        data = request.get_json()
+        notification_id = data.get("notification_id")
         
-        # Verify ownership before deletion
-        notifications = notification_crud.get_user_notifications(user_id, limit=1)
-        user_notification_ids = [n['notification_id'] for n in notifications]
+        if not notification_id:
+            return jsonify({"error": "notification_id is required"}), 400
         
-        if notification_id not in user_notification_ids:
+        notification_service = NotificationService(connection_pool)
+        success = notification_service.delete_notification(notification_id, user_id)
+        
+        if success:
             return jsonify({
-                'success': False,
-                'error': 'Notification not found or access denied'
-            }), 404
-        
-        result = notification_crud.delete_notification(notification_id, user_id)
-        
-        if result:
-            return jsonify({
-                'success': True,
-                'message': 'Notification deleted'
+                "status": "success",
+                "message": "Notification deleted"
             }), 200
         else:
             return jsonify({
-                'success': False,
-                'error': 'Failed to delete notification'
-            }), 500
+                "error": "Failed to delete notification"
+            }), 400
             
     except Exception as e:
-        logging.error(f"Error deleting notification: {e}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
-
-
-
-
-
-
-
-
-
-#!----------------------------------------------------
-#! to remove in production
-
-@notifications_bp.route('/', methods=['GET'])
-def chat_home():
-    return render_template('test.html')
-    # return render_template('notif_test.html')
-
-
-
-# @auth_guard
-
-@notifications_bp.route('/test', methods=['POST'])
-@auth_guard
-def test_notification():
-    """Create a test notification (for development only)"""
-    # try:
-    user_id = request.json.get('user_id', 1)
-    cender_id = g.user_id
-    notification_type = request.json.get('type', 'test')
-    # reference_id = request.json.get('reference_id', None)
-    
-    connection_pool = current_app.config["CONNECTION_POOL"]
-    notification_service = NotificationService(connection_pool)
-    
-    notification = notification_service.create_notification(
-        user_id=user_id,
-        notification_type=notification_type,
-        reference_id=cender_id
-    )
-    from utils.socket_manager import SocketManager
-    
-    if notification:
+        logging.error(f"❌ Error deleting notification: {str(e)}")
+        logging.error(traceback.format_exc())
         return jsonify({
-            'success': True,
-            'message': 'Test notification created',
-            'notification': notification
-        }), 201
-    else:
-        return jsonify({
-            'success': False,
-            'error': 'Failed to create test notification'
+            "error": "Failed to delete notification",
+            "details": str(e)
         }), 500
-            
-    # except Exception as e:
-    #     logging.error(f"Error creating test notification: {e}")
-    #     return jsonify({'success': False, 'error': 'Internal server error'}), 500
-    
-    
 
 
-
-
-# {% comment %} <!DOCTYPE html>
-# <html>
-# <head>
-#     <title>Socket.IO Test</title>
-#     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-# </head>
-# <body>
-#     <div id="status">Disconnected</div>
-#     <button onclick="connect()">Connect</button>
-#     <div id="messages"></div>
-
-#     <script>
-#         let socket = null;
+@notifications_bp.route("/clear_all_notifications", methods=["POST", "DELETE"])
+@auth_guard
+def clear_all_notifications():
+    """Delete all notifications for the authenticated user"""
+    try:
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            logging.error("❌ Connection pool not available")
+            return jsonify({"error": "Database connection not available"}), 500
         
-#         function connect() {
-#             // This will trigger your @socketio.on('connect') handler
-#             socket = io('http://localhost:5000', {
-#                 query: {
-#                     user_id: 1  // Add this to see it in your handler
-#                 }
-#             });
+        user_id = g.user_id
+        
+        logging.info(f"🗑️ Clearing all notifications for user {user_id}")
+        
+        notification_service = NotificationService(connection_pool)
+        success = notification_service.delete_all_user_notifications(user_id)
+        
+        if success:
+            # Emit updated unread count via Socket.IO
+            socketio = current_app.config.get("SOCKETIO")
+            if socketio:
+                socketio.emit("unread_count_updated", {
+                    "count": 0
+                }, room=f"user_{user_id}")
             
-#             socket.on('connect', () => {
-#                 document.getElementById('status').textContent = 'Connected';
-#                 console.log('✅ Client: Socket.IO connected');
-#             });
+            logging.info(f"✅ Successfully cleared all notifications for user {user_id}")
+            return jsonify({
+                "status": "success",
+                "message": "All notifications cleared"
+            }), 200
+        else:
+            logging.warning(f"⚠️ No notifications to clear for user {user_id}")
+            return jsonify({
+                "status": "success",
+                "message": "No notifications to clear"
+            }), 200
             
-#             socket.on('connected', (data) => {
-#                 console.log('✅ Server confirmed:', data);
-#                 document.getElementById('messages').innerHTML += 
-#                     `<p>Server: ${JSON.stringify(data)}</p>`;
-#             });
-            
-#             socket.on('disconnect', () => {
-#                 document.getElementById('status').textContent = 'Disconnected';
-#                 console.log('❌ Disconnected');
-#             });
-#         }
-#     </script>
-# </body>
-# </html> {% endcomment %}
+    except Exception as e:
+        logging.error(f"❌ Error clearing all notifications: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to clear all notifications",
+            "details": str(e)
+        }), 500

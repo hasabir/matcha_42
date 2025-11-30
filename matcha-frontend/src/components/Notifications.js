@@ -412,12 +412,13 @@ const Notifications = () => {
 
   const getNotificationIcon = (type) => {
     const icons = {
-      'like': '💖',
+      'like': '❤️',
       'match': '🎉',
       'profile_view': '👀',
       'new_message': '💬',
       'unliked': '💔',
       'dislike': '👎',
+      'block': '🚫',
       'notification': '🔔'
     };
     return icons[type] || '🔔';
@@ -433,6 +434,7 @@ const Notifications = () => {
       'new_message': 'You have a new message',
       'unliked': 'Someone unliked you',
       'dislike': 'Someone passed on your profile',
+      'block': 'Someone blocked you',
       'notification': 'New notification'
     };
     return messages[notification.type] || 'New notification';

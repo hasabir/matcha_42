@@ -36,9 +36,12 @@ const VerifyEmailPage = () => {
             window.dispatchEvent(new Event("auth-changed"));
           }
           
-          // Redirect to profile setup page after 3 seconds
+          // Get the redirect path from backend response
+          const redirectPath = data.redirect_to || '/profile-step-one';
+          
+          // Redirect to the appropriate page after 3 seconds
           setTimeout(() => {
-            navigate('/profile-step-one');
+            navigate(redirectPath);
           }, 3000);
         } else {
           setStatus('error');

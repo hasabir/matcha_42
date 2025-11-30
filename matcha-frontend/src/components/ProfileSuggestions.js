@@ -2,23 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../utils/api';
 import './ProfileSuggestions.css';
 
+// Toast notification component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`toast toast-${type}`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="toast-close">×</button>
+    </div>
+  );
+};
+
 const ProfileSuggestions = ({ currentUser }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [likingUser, setLikingUser] = useState(null);
   
   // Filters state
   const [filters, setFilters] = useState({
     min_age: '',
     max_age: '',
-    max_distance: 50, // Default closer range for profile suggestions
+    max_distance: 100, // Default: 100km for better relevance (was 500km)
     min_fame: '',
     max_fame: '',
     common_tags: '', // Added common tags filter
     sort_by: 'match_score',
     sort_order: 'desc'
   });
+
+  const addToast = (message, type = 'success') => {
+    // Check if the same message already exists to prevent duplicates
+    setToasts(prev => {
+      const exists = prev.some(toast => toast.message === message && toast.type === type);
+      if (exists) {
+        return prev; // Don't add duplicate
+      }
+      const id = Date.now();
+      return [...prev, { id, message, type }];
+    });
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   useEffect(() => {
     loadSuggestions();
@@ -39,18 +72,95 @@ const ProfileSuggestions = ({ currentUser }) => {
       if (!response.ok) throw new Error('Failed to load suggestions');
       
       const data = await response.json();
-      // Limit to top 6 suggestions for profile page
-      setSuggestions((data.suggestions || []).slice(0, 6));
+      // Show top 20 suggestions for better browsing experience
+      setSuggestions((data.suggestions || []).slice(0, 20));
       setError(null);
+      
+      if (data.suggestions && data.suggestions.length > 0) {
+        addToast(`Found ${data.suggestions.length} matches! 🎉`, 'success');
+      }
     } catch (err) {
       console.error('Error loading suggestions:', err);
       setError(err.message);
+      addToast('Failed to load suggestions', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFilterChange = (key, value) => {
+    // Allow empty values (user clearing the field)
+    if (value === '' || value === null || value === undefined) {
+      setFilters(prev => ({ ...prev, [key]: value }));
+      return;
+    }
+
+    // Convert to number for validation
+    const numValue = Number(value);
+    
+    // Validate filter inputs to prevent invalid values
+    if (key === 'min_age') {
+      if (numValue < 18 || numValue > 100) {
+        // Don't show error while user is still typing (e.g., typing "5" to get "50")
+        // Only validate if it looks like a complete number (2+ digits or clearly out of range)
+        if (value.length >= 2 || numValue > 100) {
+          addToast('Age must be between 18 and 100', 'error');
+          return;
+        }
+      }
+      // Check if min_age > max_age (only if max_age is set)
+      if (filters.max_age && numValue > Number(filters.max_age)) {
+        addToast('Minimum age cannot be greater than maximum age', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_age') {
+      if (numValue < 18 || numValue > 100) {
+        // Only validate if it looks like a complete number
+        if (value.length >= 2 || numValue > 100) {
+          addToast('Age must be between 18 and 100', 'error');
+          return;
+        }
+      }
+      // Check if max_age < min_age (only if min_age is set)
+      if (filters.min_age && numValue < Number(filters.min_age)) {
+        addToast('Maximum age cannot be less than minimum age', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_distance') {
+      if (numValue < 0 || numValue > 10000) {
+        addToast('Distance must be between 0 and 10000 km', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'min_fame') {
+      if (numValue < 0 || numValue > 100) {
+        addToast('Fame rating must be between 0 and 100', 'error');
+        return;
+      }
+      // Check if min_fame > max_fame (only if max_fame is set)
+      if (filters.max_fame && numValue > Number(filters.max_fame)) {
+        addToast('Minimum fame cannot be greater than maximum fame', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_fame') {
+      if (numValue < 0 || numValue > 100) {
+        addToast('Fame rating must be between 0 and 100', 'error');
+        return;
+      }
+      // Check if max_fame < min_fame (only if min_fame is set)
+      if (filters.min_fame && numValue < Number(filters.min_fame)) {
+        addToast('Maximum fame cannot be less than minimum fame', 'error');
+        return;
+      }
+    }
+    
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -59,31 +169,59 @@ const ProfileSuggestions = ({ currentUser }) => {
   };
 
   const handleLike = async (username) => {
+    // Check if user has profile picture before allowing like
+    try {
+      const profileCheckRes = await fetchWithAuth('http://localhost:5000/api/profile/me/profile-pic');
+      if (profileCheckRes.ok) {
+        const profileData = await profileCheckRes.json();
+        if (!profileData.result || profileData.result === null) {
+          addToast('📸 Please upload a profile picture before liking other users', 'error');
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Error checking profile picture:', err);
+    }
+    
+    setLikingUser(username);
     try {
       const response = await fetchWithAuth(`http://localhost:5000/api/interactions/like/${username}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
+        }
       });
+      
       if (response.ok) {
         const data = await response.json();
-        if (data.message && data.message.includes('like')) {
-          alert(`💖 You liked ${username}`);
-        } else {
-          alert(`� You disliked ${username}`);
+        
+        // Show appropriate toast based on action
+        if (data.is_match) {
+          addToast(`🎉 It's a Match with ${username}! You can now chat together!`, 'match');
+        } else if (data.action === 'like') {
+          addToast(`💖 You liked ${username}`, 'success');
         }
-        // Remove user from suggestions
-        setSuggestions(prev => prev.filter(s => s.username !== username));
+        
+        // Remove user from suggestions with animation
+        setTimeout(() => {
+          setSuggestions(prev => prev.filter(s => s.username !== username));
+        }, 500);
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.error || 'Failed to like user'}`);
+        addToast(errorData.error || 'Failed to like user', 'error');
       }
     } catch (err) {
       console.error('Error liking user:', err);
-      alert('Failed to like user. Please try again.');
+      addToast('Network error. Please try again.', 'error');
+    } finally {
+      setLikingUser(null);
     }
+  };
+
+  const handlePass = async (username) => {
+    // Simple animation and removal
+    setSuggestions(prev => prev.filter(s => s.username !== username));
+    addToast(`Passed on ${username}`, 'info');
   };
 
   const handleViewProfile = (username) => {
@@ -92,6 +230,18 @@ const ProfileSuggestions = ({ currentUser }) => {
 
   return (
     <div className="profile-suggestions">
+      {/* Toast notifications */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </div>
+
       <div className="suggestions-header">
         <div className="header-content">
           <h3>💫 Suggested Matches</h3>
@@ -110,6 +260,31 @@ const ProfileSuggestions = ({ currentUser }) => {
           >
             View All
           </button>
+        </div>
+      </div>
+
+      {/* GPS Location Warning Banner */}
+      {currentUser && !currentUser.latitude && (
+        <div className="info-banner warning-banner">
+          <div className="info-icon">⚠️</div>
+          <div className="info-content">
+            <strong>Location not set!</strong>
+            <p>Enable GPS in your profile settings for distance-based matching and to see users near you.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Geographic Priority Info Banner */}
+      <div className="info-banner geographical-priority-banner">
+        <div className="info-icon">ℹ️</div>
+        <div className="info-content">
+          <strong>🌍 Geographical Priority System:</strong>
+          <div className="priority-tiers">
+            <span className="tier tier-0">🎯 Tier 1: Users within 50km (highest priority)</span>
+            <span className="tier tier-1">📍 Tier 2: Same city or country</span>
+            <span className="tier tier-2">🌐 Tier 3: Other locations</span>
+          </div>
+          <small>Results are automatically sorted by geographical proximity, then by your selected criteria.</small>
         </div>
       </div>
 
@@ -143,12 +318,12 @@ const ProfileSuggestions = ({ currentUser }) => {
 
             {/* Distance Filter */}
             <div className="filter-section">
-              <h4>📍 Distance: {filters.max_distance}km</h4>
+              <h4>📍 Distance: {filters.max_distance ? `${filters.max_distance}km` : 'All'}</h4>
               <input
                 type="range"
                 min="1"
                 max="500"
-                value={filters.max_distance}
+                value={filters.max_distance || 100}
                 onChange={(e) => handleFilterChange('max_distance', e.target.value)}
                 className="distance-slider"
               />
@@ -208,6 +383,8 @@ const ProfileSuggestions = ({ currentUser }) => {
                 <option value="age">🎂 Age</option>
                 <option value="fame_rating">⭐ Fame Rating</option>
                 <option value="common_tags">🏷️ Common Interests</option>
+                <option value="city">🏙️ City</option>
+                <option value="country">🌍 Country</option>
               </select>
               
               <div className="sort-order">
@@ -245,7 +422,7 @@ const ProfileSuggestions = ({ currentUser }) => {
                 setFilters({
                   min_age: '',
                   max_age: '',
-                  max_distance: 50,
+                  max_distance: 100,
                   min_fame: '',
                   max_fame: '',
                   common_tags: '',
@@ -287,7 +464,7 @@ const ProfileSuggestions = ({ currentUser }) => {
                 <p>Try expanding your search criteria or check back later!</p>
                 <button 
                   onClick={() => {
-                    setFilters(prev => ({ ...prev, max_distance: 100, min_age: '', max_age: '' }));
+                    setFilters(prev => ({ ...prev, max_distance: 500, min_age: '', max_age: '' }));
                     setTimeout(loadSuggestions, 100);
                   }}
                 >
@@ -414,25 +591,35 @@ const ProfileSuggestions = ({ currentUser }) => {
                 {/* Card Actions */}
                 <div className="suggestion-actions">
                   <button 
-                    className="action-btn like-btn"
+                    className={`action-btn like-btn ${likingUser === person.username ? 'liking' : ''}`}
                     onClick={() => handleLike(person.username)}
                     title="Like this profile"
+                    disabled={likingUser === person.username}
                   >
-                    💖
+                    {likingUser === person.username ? (
+                      <span className="spinner"></span>
+                    ) : (
+                      <>
+                        <span>💖</span>
+                        <span>Like</span>
+                      </>
+                    )}
                   </button>
                   <button 
                     className="action-btn view-btn"
                     onClick={() => handleViewProfile(person.username)}
                     title="View full profile"
                   >
-                    👤
+                    <span>👤</span>
+                    <span>Profile</span>
                   </button>
                   <button 
-                    className="action-btn chat-btn"
-                    onClick={() => window.open(`/chat/${person.username}`, '_blank')}
-                    title="Send message"
+                    className="action-btn pass-btn"
+                    onClick={() => handlePass(person.username)}
+                    title="Pass on this profile"
                   >
-                    💬
+                    <span>�</span>
+                    <span>Pass</span>
                   </button>
                 </div>
               </div>

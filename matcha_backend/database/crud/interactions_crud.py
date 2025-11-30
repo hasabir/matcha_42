@@ -56,6 +56,12 @@ class Interactions(DBManager):
                              where_params=(self.other_user_id, self.user_id))
         return bool(result)
 
+    def did_i_like(self):
+        """Check if the current user has liked the other user"""
+        result = self.select('likes', columns='liker_id',
+                             where='liker_id = %s AND liked_id = %s',
+                             where_params=(self.user_id, self.other_user_id))
+        return bool(result)
     
     
     def is_blocked(self):

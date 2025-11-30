@@ -8,6 +8,65 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def normalize_country_name(country):
+    """
+    Normalize country names to handle different languages and variations
+    Maps common variations to standard English names
+    
+    Args:
+        country: Country name in any language
+    
+    Returns:
+        str: Normalized country name in English
+    """
+    if not country:
+        return country
+    
+    # Convert to lowercase for comparison
+    country_lower = country.lower().strip()
+    
+    # Country name mappings (local names -> English names)
+    country_mappings = {
+        # Morocco variations
+        'maroc': 'Morocco',
+        'marruecos': 'Morocco',
+        'المغرب': 'Morocco',
+        
+        # France variations
+        'france': 'France',
+        'francia': 'France',
+        
+        # Spain variations
+        'españa': 'Spain',
+        'espagne': 'Spain',
+        
+        # Germany variations
+        'deutschland': 'Germany',
+        'allemagne': 'Germany',
+        
+        # Italy variations
+        'italia': 'Italy',
+        'italie': 'Italy',
+        
+        # United Kingdom variations
+        'united kingdom': 'United Kingdom',
+        'royaume-uni': 'United Kingdom',
+        'uk': 'United Kingdom',
+        
+        # United States variations
+        'united states': 'United States',
+        'usa': 'United States',
+        'états-unis': 'United States',
+        
+        # Canada variations
+        'canada': 'Canada',
+        'canadá': 'Canada',
+    }
+    
+    # Return mapped name if found, otherwise return original with proper capitalization
+    return country_mappings.get(country_lower, country.title())
+
+
 def get_location_from_ip(ip_address):
     """
     Get location data from an IP address using ip-api.com (free, no key required)
@@ -57,7 +116,7 @@ def get_location_from_ip(ip_address):
                     'latitude': latitude,
                     'longitude': longitude,
                     'city': data.get('city'),
-                    'country': data.get('country'),
+                    'country': normalize_country_name(data.get('country')),
                     'source': 'ip'
                 }
                 
@@ -250,7 +309,7 @@ def reverse_geocode(latitude, longitude):
             
             result = {
                 'city': city,
-                'country': country
+                'country': normalize_country_name(country)
             }
             
             if neighborhood:

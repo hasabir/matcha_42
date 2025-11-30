@@ -7,7 +7,6 @@ export default function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
-  const [resetToken, setResetToken] = useState(null);
   const navigate = useNavigate();
 
   const onSubmit = async (e) => {
@@ -37,11 +36,6 @@ export default function ForgotPassword() {
         "If an account exists for that username, we sent a password reset link to your email. Please check your inbox and click the link to reset your password."
       );
       
-      // Store token for dev testing (in production, this wouldn't be returned)
-      if (data.token) {
-        setResetToken(data.token);
-      }
-      
       // Clear the form
       setUsername("");
     } catch (e2) {
@@ -49,14 +43,6 @@ export default function ForgotPassword() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleTestReset = () => {
-    // Open in current tab
-    window.location.href = `http://localhost:5000/api/auth/confirm_email_reset/${resetToken}`;
-    
-    // Also open in new tab
-    window.open(`http://localhost:5000/api/auth/confirm_email_reset/${resetToken}`, '_blank');
   };
 
   return (
@@ -169,44 +155,6 @@ export default function ForgotPassword() {
               <div>
                 <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Check Your Email</div>
                 <span>{msg}</span>
-                
-                {/* Development Test Button */}
-                {resetToken && (
-                  <button
-                    onClick={handleTestReset}
-                    className="fp-test-btn"
-                    style={{
-                      marginTop: "1rem",
-                      padding: "0.5rem 1rem",
-                      background: "linear-gradient(135deg, #06b6d4, #3b82f6)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "0.875rem",
-                      fontWeight: "600",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      width: "100%",
-                      justifyContent: "center"
-                    }}
-                  >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2"
-                      style={{ width: "16px", height: "16px" }}
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                      <polyline points="15 3 21 3 21 9"></polyline>
-                      <line x1="10" y1="14" x2="21" y2="3"></line>
-                    </svg>
-                    Test Reset Link (Opens in Both Tabs)
-                  </button>
-                )}
               </div>
             </div>
           )}

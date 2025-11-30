@@ -8,6 +8,7 @@ export const BASE = "http://localhost:5000";
  * - On 401/403 tries a one-time refresh via POST /api/auth/refresh (cookie-based)
  * - Retries the original request with the new access token
  * - Redirects to /signin if refresh fails or retry is still unauthorized
+ * - Does NOT redirect for blocked user 403s (business logic, not auth error)
  *
  * NOTE:
  *  • Do NOT set "Content-Type" here (some calls send FormData).
@@ -30,6 +31,28 @@ export async function fetchWithAuth(url, options = {}) {
 
   // Success or any non-auth error → return immediately
   if (res.status !== 401 && res.status !== 403) return res;
+
+  // Check if 403 is due to blocked user (business logic, not auth error)
+  if (res.status === 403) {
+    try {
+      // Clone response to read body without consuming it
+      const clonedRes = res.clone();
+      const errorData = await clonedRes.json().catch(() => ({}));
+      const errorMessage = errorData.error || "";
+      
+      // Check if this is a blocked user error (not an auth error)
+      if (
+        errorMessage.includes("blocked") ||
+        errorMessage.includes("You are blocked") ||
+        errorMessage.includes("You have blocked")
+      ) {
+        // This is a blocked user error, not an auth error - return it without redirecting
+        return res;
+      }
+    } catch (e) {
+      // If we can't parse the response, continue with auth refresh logic
+    }
+  }
 
   // Attempt refresh
   const refreshRes = await fetch(`${BASE}/api/auth/refresh`, {
@@ -63,8 +86,29 @@ export async function fetchWithAuth(url, options = {}) {
     credentials: "include",
   });
 
-  // If still unauthorized, force re-login
+  // If still unauthorized, check if it's a blocked user error
   if (res.status === 401 || res.status === 403) {
+    // Check if 403 is due to blocked user
+    if (res.status === 403) {
+      try {
+        const clonedRes = res.clone();
+        const errorData = await clonedRes.json().catch(() => ({}));
+        const errorMessage = errorData.error || "";
+        
+        if (
+          errorMessage.includes("blocked") ||
+          errorMessage.includes("You are blocked") ||
+          errorMessage.includes("You have blocked")
+        ) {
+          // This is a blocked user error, not an auth error - return it without redirecting
+          return res;
+        }
+      } catch (e) {
+        // If we can't parse the response, treat as auth error
+      }
+    }
+    
+    // Only redirect if it's a real auth error (401 or non-blocked 403)
     window.location.href = "/signin";
   }
 
@@ -92,7 +136,7 @@ export const api = {
     fetchWithAuth(`${BASE}/api/profile/get_images/${encodeURIComponent(username)}`, options),
 
   myVisitors: (options = {}) =>
-    fetchWithAuth(`${BASE}/api/profile/get_profile_vistors`, options),
+    fetchWithAuth(`${BASE}/api/profile/get_profile_visitors`, options),
 
   setLocation: (lat, lng, acc) =>
     fetchWithAuth(`${BASE}/api/profile/set_location`, {
@@ -137,13 +181,16 @@ export const api = {
       body: JSON.stringify({ unblocked_user: username }),
     }),
 
-  report: (username, reason, options = {}) =>
+  report: (username, options = {}) =>
     fetchWithAuth(`${BASE}/api/interactions/report`, {
       ...options,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reported_user: username, reason }),
+      body: JSON.stringify({ reported_user: username, reason: options.reason }),
     }),
+
+  checkBlockStatus: (username, options = {}) =>
+    fetchWithAuth(`${BASE}/api/interactions/check_block_status/${encodeURIComponent(username)}`, options),
 };
 
 /* =========================

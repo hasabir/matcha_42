@@ -50,9 +50,11 @@ def endpoints_docs():
             "DELETE /api/profile/delete_image/<image_id>": "Delete an image"
         },
         "search": {
-            "GET /api/search": "Search for users",
-            "POST /api/search/filter": "Filter users by criteria",
-            "POST /api/search/sort": "Sort search results"
+            "POST /api/search/users": "Advanced search for users with filters and sorting",
+            "GET /api/search/filters": "Get available filter options (cities, countries, tags, etc.)",
+            "POST /api/search/filter": "Filter an existing list of usernames by criteria",
+            "POST /api/search/sort": "Sort a list of usernames",
+            "POST /api/search/filter-and-sort": "Filter and sort a list in one request"
         },
         "interactions": {
             "POST /api/interactions/like": "Like a user",

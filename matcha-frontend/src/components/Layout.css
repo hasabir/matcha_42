@@ -15,4 +15,33 @@
   main {
     padding: 2rem;
   }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .site-header {
+      padding: 0.875rem 1.5rem;
+    }
+
+    .brand {
+      font-size: 1.25rem;
+    }
+
+    main {
+      padding: 1.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .site-header {
+      padding: 0.75rem 1rem;
+    }
+
+    .brand {
+      font-size: 1.125rem;
+    }
+
+    main {
+      padding: 1rem;
+    }
+  }
   

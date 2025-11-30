@@ -2,20 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../utils/api';
 import './BrowsePage.css';
 
+// Toast notification component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`toast toast-${type}`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="toast-close">×</button>
+    </div>
+  );
+};
+
 const BrowsePage = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [filters, setFilters] = useState({
     min_age: '',
     max_age: '',
     max_distance: 100,
     min_fame: '',
     max_fame: '',
+    common_tags: '',
     sort_by: 'match_score',
     sort_order: 'desc'
   });
   const [filterOptions, setFilterOptions] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState('');
+
+  const addToast = (message, type = 'success') => {
+    setToasts(prev => {
+      const exists = prev.some(toast => toast.message === message && toast.type === type);
+      if (exists) {
+        return prev;
+      }
+      const id = Date.now();
+      return [...prev, { id, message, type }];
+    });
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   useEffect(() => {
     loadFilterOptions();
@@ -44,6 +77,11 @@ const BrowsePage = () => {
           params.append(key, value);
         }
       });
+      
+      // Add country filter if selected
+      if (selectedCountry) {
+        params.append('country', selectedCountry);
+      }
 
       const response = await fetchWithAuth(`http://localhost:5000/api/browse/suggestions?${params}`);
       if (!response.ok) throw new Error('Failed to load suggestions');
@@ -51,15 +89,87 @@ const BrowsePage = () => {
       const data = await response.json();
       setSuggestions(data.suggestions || []);
       setError(null);
+      
+      if (data.suggestions && data.suggestions.length > 0) {
+        addToast(`Found ${data.suggestions.length} matches! 🎉`, 'success');
+      } else {
+        addToast('No matches found. Try adjusting your filters.', 'info');
+      }
     } catch (err) {
       console.error('Error loading suggestions:', err);
       setError(err.message);
+      addToast('Failed to load suggestions', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFilterChange = (key, value) => {
+    // Allow empty values
+    if (value === '' || value === null || value === undefined) {
+      setFilters(prev => ({ ...prev, [key]: value }));
+      return;
+    }
+
+    // Convert to number for validation
+    const numValue = Number(value);
+    
+    // Validate filter inputs
+    if (key === 'min_age') {
+      if (numValue < 18 || numValue > 100) {
+        if (value.length >= 2 || numValue > 100) {
+          addToast('Age must be between 18 and 100', 'error');
+          return;
+        }
+      }
+      if (filters.max_age && numValue > Number(filters.max_age)) {
+        addToast('Minimum age cannot be greater than maximum age', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_age') {
+      if (numValue < 18 || numValue > 100) {
+        if (value.length >= 2 || numValue > 100) {
+          addToast('Age must be between 18 and 100', 'error');
+          return;
+        }
+      }
+      if (filters.min_age && numValue < Number(filters.min_age)) {
+        addToast('Maximum age cannot be less than minimum age', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_distance') {
+      if (numValue < 0 || numValue > 10000) {
+        addToast('Distance must be between 0 and 10000 km', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'min_fame') {
+      if (numValue < 0 || numValue > 100) {
+        addToast('Fame rating must be between 0 and 100', 'error');
+        return;
+      }
+      if (filters.max_fame && numValue > Number(filters.max_fame)) {
+        addToast('Minimum fame cannot be greater than maximum fame', 'error');
+        return;
+      }
+    }
+    
+    if (key === 'max_fame') {
+      if (numValue < 0 || numValue > 100) {
+        addToast('Fame rating must be between 0 and 100', 'error');
+        return;
+      }
+      if (filters.min_fame && numValue < Number(filters.min_fame)) {
+        addToast('Maximum fame cannot be less than minimum fame', 'error');
+        return;
+      }
+    }
+    
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -91,89 +201,186 @@ const BrowsePage = () => {
 
   return (
     <div className="browse-page">
+      {/* Toast notifications */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </div>
+
       <div className="browse-header">
-        <h1>Discover People</h1>
+        <h1>🔍 Discover People</h1>
         <p>Find your perfect match based on your preferences and location</p>
       </div>
 
-      {/* Filters Section */}
+      {/* Enhanced Filters Section */}
       <div className="filters-section">
-        <h3>Filters & Sorting</h3>
+        <h3>🎯 Filters & Sorting</h3>
         <div className="filters-grid">
+          {/* Age Filter */}
           <div className="filter-group">
-            <label>Age Range:</label>
+            <label>🎂 Age Range:</label>
             <div className="age-inputs">
               <input
                 type="number"
-                placeholder="Min"
+                placeholder="Min age"
                 value={filters.min_age}
                 onChange={(e) => handleFilterChange('min_age', e.target.value)}
-                min={filterOptions?.age_range?.min || 18}
-                max={filterOptions?.age_range?.max || 100}
+                min="18"
+                max="100"
               />
-              <span>-</span>
+              <span>to</span>
               <input
                 type="number"
-                placeholder="Max"
+                placeholder="Max age"
                 value={filters.max_age}
                 onChange={(e) => handleFilterChange('max_age', e.target.value)}
-                min={filterOptions?.age_range?.min || 18}
-                max={filterOptions?.age_range?.max || 100}
+                min="18"
+                max="100"
               />
             </div>
           </div>
 
+          {/* Distance Filter */}
           <div className="filter-group">
-            <label>Max Distance: {filters.max_distance}km</label>
+            <label>📍 Distance: {filters.max_distance ? `${filters.max_distance}km` : 'All'}</label>
             <input
               type="range"
               min="1"
               max="500"
-              value={filters.max_distance}
+              value={filters.max_distance || 100}
               onChange={(e) => handleFilterChange('max_distance', e.target.value)}
               className="distance-slider"
             />
+            <div className="distance-labels">
+              <span>1km</span>
+              <span>500km</span>
+            </div>
           </div>
 
+          {/* Fame Rating Filter */}
           <div className="filter-group">
-            <label>Fame Rating:</label>
+            <label>⭐ Fame Rating:</label>
             <div className="fame-inputs">
               <input
                 type="number"
-                placeholder="Min"
+                placeholder="Min fame"
                 value={filters.min_fame}
                 onChange={(e) => handleFilterChange('min_fame', e.target.value)}
-                min={0}
-                max={100}
+                min="0"
+                max="100"
               />
-              <span>-</span>
+              <span>to</span>
               <input
                 type="number"
-                placeholder="Max"
+                placeholder="Max fame"
                 value={filters.max_fame}
                 onChange={(e) => handleFilterChange('max_fame', e.target.value)}
-                min={0}
-                max={100}
+                min="0"
+                max="100"
               />
             </div>
           </div>
 
+          {/* Common Tags Filter */}
           <div className="filter-group">
-            <label>Sort By:</label>
+            <label>🏷️ Common Interests:</label>
+            <input
+              type="text"
+              placeholder="e.g., music, travel, sports"
+              value={filters.common_tags}
+              onChange={(e) => handleFilterChange('common_tags', e.target.value)}
+              className="tags-input"
+            />
+            <small>Separate with commas</small>
+          </div>
+
+          {/* Country Filter */}
+          <div className="filter-group">
+            <label>🌍 Country:</label>
             <select
-              value={filters.sort_by}
-              onChange={(e) => handleFilterChange('sort_by', e.target.value)}
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              className="country-select"
             >
-              <option value="match_score">Best Match</option>
-              <option value="distance">Distance</option>
-              <option value="age">Age</option>
-              <option value="fame_rating">Fame Rating</option>
-              <option value="common_tags">Common Interests</option>
+              <option value="">All Countries</option>
+              {filterOptions?.available_countries?.map((country) => (
+                <option key={country} value={country}>
+                  {country === 'Morocco' ? '🇲🇦' : ''} {country}
+                </option>
+              ))}
             </select>
           </div>
 
+          {/* Sort Options */}
+          <div className="filter-group">
+            <label>📊 Sort By:</label>
+            <select
+              value={filters.sort_by}
+              onChange={(e) => handleFilterChange('sort_by', e.target.value)}
+              className="sort-select"
+            >
+              <option value="match_score">🎯 Best Match</option>
+              <option value="distance">📍 Distance</option>
+              <option value="age">🎂 Age</option>
+              <option value="fame_rating">⭐ Fame Rating</option>
+              <option value="common_tags">🏷️ Common Interests</option>
+              <option value="city">🏙️ City</option>
+              <option value="country">🌍 Country</option>
+            </select>
+            
+            <div className="sort-order">
+              <label>
+                <input
+                  type="radio"
+                  name="sort_order"
+                  value="desc"
+                  checked={filters.sort_order === 'desc'}
+                  onChange={(e) => handleFilterChange('sort_order', e.target.value)}
+                />
+                Descending
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="sort_order"
+                  value="asc"
+                  checked={filters.sort_order === 'asc'}
+                  onChange={(e) => handleFilterChange('sort_order', e.target.value)}
+                />
+                Ascending
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="filter-actions">
           <button className="apply-filters-btn" onClick={applyFilters}>
-            Apply Filters
+            🔍 Apply Filters
+          </button>
+          <button 
+            className="reset-filters-btn" 
+            onClick={() => {
+              setFilters({
+                min_age: '',
+                max_age: '',
+                max_distance: 100,
+                min_fame: '',
+                max_fame: '',
+                common_tags: '',
+                sort_by: 'match_score',
+                sort_order: 'desc'
+              });
+              setSelectedCountry('');
+              setTimeout(loadSuggestions, 100);
+            }}
+          >
+            🔄 Reset Filters
           </button>
         </div>
       </div>

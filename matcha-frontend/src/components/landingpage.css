@@ -2,7 +2,11 @@
 
 .landing-container {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   background: linear-gradient(180deg, #ffffff 0%, #fdf2f8 100%);
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* ==================== HERO SECTION ==================== */
@@ -11,10 +15,12 @@
   grid-template-columns: 1fr 1fr;
   gap: 4rem;
   align-items: center;
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 6rem 2rem;
   min-height: calc(100vh - 80px);
+  box-sizing: border-box;
 }
 
 .hero-content {
@@ -217,9 +223,11 @@
 
 /* ==================== FEATURES SECTION ==================== */
 .features-section {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 6rem 2rem;
+  box-sizing: border-box;
 }
 
 .section-header {
@@ -289,12 +297,16 @@
   background: linear-gradient(135deg, #ec4899, #a855f7);
   padding: 6rem 2rem;
   margin-top: 4rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cta-content {
   max-width: 800px;
   margin: 0 auto;
   text-align: center;
+  width: 100%;
 }
 
 .cta-title {
@@ -346,16 +358,30 @@
 }
 
 /* ==================== RESPONSIVE ==================== */
+@media (max-width: 1200px) {
+  .hero-section {
+    max-width: 100%;
+    padding: 5rem 1.5rem;
+  }
+  
+  .features-section {
+    max-width: 100%;
+    padding: 5rem 1.5rem;
+  }
+}
+
 @media (max-width: 1024px) {
   .hero-section {
     grid-template-columns: 1fr;
     text-align: center;
     padding: 4rem 2rem;
+    gap: 3rem;
   }
 
   .hero-content {
     max-width: 600px;
     margin: 0 auto;
+    width: 100%;
   }
 
   .hero-subtitle {
@@ -378,11 +404,26 @@
   .hero-title {
     font-size: 3rem;
   }
+  
+  .features-section {
+    padding: 4rem 1.5rem;
+  }
+  
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
 }
 
 @media (max-width: 768px) {
+  .hero-section {
+    padding: 3rem 1.5rem;
+    gap: 2rem;
+  }
+  
   .hero-title {
     font-size: 2.5rem;
+    line-height: 1.2;
   }
 
   .hero-subtitle {
@@ -392,6 +433,7 @@
   .hero-buttons {
     flex-direction: column;
     width: 100%;
+    gap: 0.75rem;
   }
 
   .btn-hero-primary,
@@ -401,24 +443,123 @@
   }
 
   .hero-stats {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 1.5rem;
-    align-items: center;
+    justify-content: center;
+  }
+  
+  .stat-item {
+    flex: 0 0 auto;
   }
 
   .section-title {
     font-size: 1.875rem;
   }
-
-  .features-grid {
-    grid-template-columns: 1fr;
+  
+  .section-subtitle {
+    font-size: 1.125rem;
   }
 
+  .features-section {
+    padding: 3rem 1.5rem;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .feature-card {
+    padding: 2rem;
+  }
+
+  .cta-section {
+    padding: 4rem 1.5rem;
+  }
+  
   .cta-title {
     font-size: 1.875rem;
   }
 
   .cta-subtitle {
     font-size: 1.125rem;
+  }
+  
+  .cta-button {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-section {
+    padding: 2rem 1rem;
+    min-height: auto;
+  }
+  
+  .hero-title {
+    font-size: 2rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+  
+  .hero-badge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .btn-hero-primary,
+  .btn-hero-secondary {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .hero-stats {
+    gap: 1rem;
+  }
+  
+  .stat-number {
+    font-size: 1.5rem;
+  }
+  
+  .stat-label {
+    font-size: 0.8rem;
+  }
+  
+  .features-section {
+    padding: 2.5rem 1rem;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+  }
+  
+  .section-subtitle {
+    font-size: 1rem;
+  }
+  
+  .feature-card {
+    padding: 1.5rem;
+  }
+  
+  .feature-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 1.75rem;
+  }
+  
+  .cta-section {
+    padding: 3rem 1rem;
+  }
+  
+  .cta-title {
+    font-size: 1.5rem;
+  }
+  
+  .cta-subtitle {
+    font-size: 1rem;
   }
 }

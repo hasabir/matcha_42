@@ -4,12 +4,14 @@ from flask import current_app, request
 import sys
 import os
 import jwt
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../../')))
 from database.crud.interactions_crud import Interactions
 from utils.security import SecurityUtils, auth_guard
 from utils.notification_service import NotificationService
 from utils.redis_manager import redis_manager
+from utils.realtime_monitor import log_delay
 from database.crud.chat_crud import Chat
 from database.crud.matching_operations_crud import Matching
 
@@ -21,55 +23,9 @@ def get_chat_room(user_id_1, user_id_2):
     return f'chat_{min(user_id_1, user_id_2)}_{max(user_id_1, user_id_2)}'
 
 
-def register_chat_events(socketio):
-    """Register all Socket.IO event handlers"""
+def register_chat_socket_events(socketio):
+    """Register all chat Socket.IO event handlers"""
     
-    @socketio.on('connect')
-    def handle_connect():
-        try:
-            # Extract token from headers
-            auth_header = request.headers.get('Authorization')
-            if not auth_header or not auth_header.startswith('Bearer '):
-                emit('error', {'message': 'No authorization token provided'})
-                return False
-                
-            token = auth_header.split(' ')[1]
-            
-            # Decode JWT to get user_id
-            try:
-                payload = SecurityUtils.verify_jwt_token(token)
-                user_id = payload['user_id']
-            except jwt.ExpiredSignatureError:
-                emit('error', {'message': 'Token expired'})
-                return False
-            except jwt.InvalidTokenError:
-                emit('error', {'message': 'Invalid token'})
-                return False
-                
-            logger.debug(f"👉 SocketIO connect event: {user_id}")
-            
-            if user_id:
-                # Store user-socket mapping in Redis
-                redis_manager.store_user_session(user_id, request.sid)
-                
-                # Join user's personal room for notifications
-                personal_room = f'user_{user_id}'
-                join_room(personal_room)
-                
-                emit('connected', {
-                    'message': f'User {user_id} connected successfully',
-                    'user_id': user_id
-                })
-            else:
-                emit('error', {'message': 'No user_id in token'})
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ Error during SocketIO connect: {e}")
-            emit('error', {'message': 'Internal server error'})
-            return False
-    
-
     @socketio.on('join_chat')
     def handle_join_chat(data):
         """Join a chat room with another user"""
@@ -95,10 +51,18 @@ def register_chat_events(socketio):
             # Check for blocks
             interactions_crud = Interactions(connection_pool, user_id, other_user_id)
             if interactions_crud.is_blocked():
-                emit('error', {'message': 'You are blocked by this user'})
+                emit('error', {
+                    'message': 'This user has blocked you',
+                    'blocked': True,
+                    'blocked_by': 'other'
+                })
                 return
             if interactions_crud.did_i_block():
-                emit('error', {'message': 'You have blocked this user'})
+                emit('error', {
+                    'message': 'You have blocked this user',
+                    'blocked': True,
+                    'blocked_by': 'me'
+                })
                 return
             
             # Generate and join chat room
@@ -141,7 +105,8 @@ def register_chat_events(socketio):
     
     @socketio.on('send_message')
     def handle_send_message(data):
-        """Send a message to another user"""
+        """Send a message to another user with delay tracking (10-second requirement)"""
+        message_start = time.time()  # Track message delivery delay
         try:
             connection_pool = current_app.config.get("CONNECTION_POOL")
             if not connection_pool:
@@ -164,64 +129,106 @@ def register_chat_events(socketio):
             
             # Check for blocks
             interactions_crud = Interactions(connection_pool, sender_id, receiver_id)
-            if interactions_crud.is_blocked() or interactions_crud.did_i_block():
-                emit('error', {'message': 'Cannot send message to blocked user'})
+            if interactions_crud.is_blocked():
+                emit('error', {
+                    'message': 'This user has blocked you. You cannot send messages.',
+                    'blocked': True,
+                    'blocked_by': 'other'
+                })
+                return
+            if interactions_crud.did_i_block():
+                emit('error', {
+                    'message': 'You have blocked this user. You cannot send messages.',
+                    'blocked': True,
+                    'blocked_by': 'me'
+                })
                 return
             
+            # Get sender info for notification
+            from database.crud.user_crud import User
+            user_crud = User(connection_pool)
+            sender_data = user_crud.get_user_by_id(sender_id)
+            sender_username = sender_data.get('username', 'Someone') if sender_data else 'Someone'
+            
             # Create message in database
+            logger.info(f"💾 Attempting to create message: {sender_id} -> {receiver_id}")
             chat_crud = Chat(connection_pool=connection_pool)
             message = chat_crud.create_message(sender_id, receiver_id, content)
             
             if not message:
+                logger.error(f"❌ Failed to create message in database: sender={sender_id}, receiver={receiver_id}, content_length={len(content)}")
                 emit('error', {'message': 'Failed to create message'})
                 return
             
-            # Prepare message data
+            logger.info(f"✅ Message created in DB: ID={message.get('id')}")
+            
+            # Prepare message data - handle datetime serialization
+            timestamp = message.get('created_at')
+            if timestamp and hasattr(timestamp, 'isoformat'):
+                timestamp = timestamp.isoformat()
+            elif not isinstance(timestamp, str):
+                from datetime import datetime
+                timestamp = datetime.now().isoformat()
+            
             message_data = {
                 'message_id': message['id'],
                 'sender_id': sender_id,
                 'receiver_id': receiver_id,
                 'content': content,
-                'timestamp': message['created_at'].isoformat()
+                'timestamp': timestamp,
+                'sender_username': sender_username  # Include sender username
             }
             
             # Emit to chat room (both users if online)
             chat_room = get_chat_room(sender_id, receiver_id)
-            emit('new_message', message_data, room=chat_room)
+            socketio.emit('new_message', message_data, room=chat_room)
+            logger.info(f"📨 Emitted new_message to chat room: {chat_room}")
             
-            # Also emit to receiver's personal room for notifications
+            # Emit message notification to receiver's personal notification room
             receiver_room = f'user_{receiver_id}'
-            emit('message_notification', message_data, room=receiver_room)
+            socketio.emit('message_notification', message_data, room=receiver_room)
+            logger.info(f"🔔 Emitted message_notification to receiver room: {receiver_room}")
             
             # Confirm to sender
             emit('message_sent', {
                 'status': 'success',
-                'message_id': message['id']
+                'message_id': message['id'],
+                'timestamp': timestamp
             }, room=request.sid)
+            logger.info(f"✅ Sent confirmation to sender (SID: {request.sid})")
             
-            # Create notification
-            notification_service = NotificationService(connection_pool=connection_pool)
-            notification_service.create_notification(
-                user_id=receiver_id,
-                type='new_message',
-                reference_id=sender_id
-            )
+            # Create notification for new message (this will emit via the notification worker)
+            try:
+                notification_service = NotificationService(connection_pool)
+                notification_service.create_notification(
+                    user_id=receiver_id,
+                    notification_type='new_message',
+                    reference_id=sender_id
+                )
+                logger.info(f"✅ Notification created for receiver {receiver_id}")
+            except Exception as notif_error:
+                logger.error(f"⚠️ Error creating notification (message still sent): {notif_error}")
             
-            logger.info(f"Message sent from {sender_id} to {receiver_id}")
+            logger.info(f"📬 Message successfully sent from {sender_id} to {receiver_id}")
+            
+            # Track message delivery delay (10-second requirement)
+            log_delay('chat_message', message_start, user_id=sender_id,
+                     additional_info={'receiver_id': receiver_id, 'message_id': message.get('id')})
             
         except Exception as e:
-            logger.error(f"❌ Error sending message: {e}")
+            logger.error(f"❌ Error sending message: {e}", exc_info=True)
             emit('error', {'message': 'Internal server error'})
+            # Track failed message delay
+            log_delay('chat_message_failed', message_start, 
+                     additional_info={'error': str(e)})
     
     
     @socketio.on('disconnect')
     def handle_disconnect():
         """Handle user disconnect"""
         try:
-            #?
-            #? Clean up Redis session
-            #? redis_manager.delete_session_by_sid(request.sid)
-            
+            # Clean up Redis session
+            # You'll need to implement a reverse lookup or store user_id in session
             logger.info(f"Client disconnected: {request.sid}")
         except Exception as e:
             logger.error(f"❌ Error during disconnect: {e}")

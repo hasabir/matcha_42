@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS user_locations (
     longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
     city VARCHAR(100),
     country VARCHAR(100),
+    neighborhood VARCHAR(200),  -- Neighborhood-level GPS positioning as per subject requirements
     accuracy INTEGER,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_current_location UNIQUE(user_id)
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS user_locations (
 CREATE INDEX IF NOT EXISTS idx_user_locations_geo  ON user_locations USING GIST (
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
 );
+CREATE INDEX IF NOT EXISTS idx_user_locations_neighborhood ON user_locations(neighborhood);
 
 -- Profiles Table
 CREATE TABLE IF NOT EXISTS profiles (
@@ -43,7 +45,9 @@ CREATE TABLE IF NOT EXISTS profiles (
     gender TEXT,
     sexual_preferences TEXT,
     fame_rating INTEGER DEFAULT 0,
-    profile_picture TEXT
+    profile_picture TEXT,
+    profile_views INTEGER DEFAULT 0,
+    matches_count INTEGER DEFAULT 0
 );
 
 -- Images Table

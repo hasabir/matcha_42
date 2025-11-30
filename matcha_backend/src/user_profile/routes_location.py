@@ -28,6 +28,7 @@ def set_location():
     - longitude (float): Required. Longitude of the user's location.
     - city (string): Optional. City name.
     - country (string): Optional. Country name.
+    - neighborhood (string): Optional. Neighborhood name (for neighborhood-level GPS positioning).
     - accuracy (int): Optional. Accuracy of the location in meters. Defaults to 50 if not provided.
     '''
     try:
@@ -39,7 +40,7 @@ def set_location():
             if field not in request_data:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
 
-        optional_fields = ['city', 'country', 'accuracy']
+        optional_fields = ['city', 'country', 'neighborhood', 'accuracy']
         for field in optional_fields:
             if field not in request_data:
                 request_data[field] = None
@@ -49,22 +50,56 @@ def set_location():
             return jsonify({"error": "Database connection pool is not available"}), 500
 
         from database.crud.location_crud import Location
+        from utils.ip_geolocation import normalize_country_name
         location_crud = Location(connection_pool)
         
-        location_crud.set_user_location(
-            user_id=g.user_id,
-            latitude=request_data['latitude'],
-            longitude=request_data['longitude'],
-            city=request_data['city'],
-            country=request_data['country'],
-            accuracy=request_data['accuracy'] if request_data['accuracy'] is not None else 50
-        )
+        # Normalize country name to ensure consistency
+        if request_data.get('country'):
+            request_data['country'] = normalize_country_name(request_data['country'])
+        
+        # If neighborhood is not provided by frontend, try to get it from coordinates
+        if not request_data.get('neighborhood'):
+            try:
+                from utils.ip_geolocation import get_neighborhood_from_coords
+                neighborhood = get_neighborhood_from_coords(
+                    request_data['latitude'], 
+                    request_data['longitude']
+                )
+                request_data['neighborhood'] = neighborhood
+                if neighborhood:
+                    logger.info(f"✅ Auto-detected neighborhood for user {g.user_id}: {neighborhood}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not auto-detect neighborhood: {e}")
+        
+        try:
+            location_crud.set_user_location(
+                user_id=g.user_id,
+                latitude=request_data['latitude'],
+                longitude=request_data['longitude'],
+                city=request_data['city'],
+                country=request_data['country'],
+                neighborhood=request_data['neighborhood'],  # Neighborhood-level GPS positioning
+                accuracy=request_data['accuracy'] if request_data['accuracy'] is not None else 50
+            )
+            logger.info(f"✅ Location set for user {g.user_id}: lat={request_data['latitude']}, lon={request_data['longitude']}, neighborhood={request_data.get('neighborhood', 'N/A')}")
+        except Exception as db_error:
+            logger.exception(f"❌ Database error while setting location for user {g.user_id}")
+            return jsonify({
+                "error": "Database error while saving location",
+                "message": "Unable to save your location. Please try again later."
+            }), 500
 
         return jsonify({"status": "ok"}), 200
         
+    except BadRequestKeyError as e:
+        logger.error(f"❌ Missing required field: {e}")
+        return jsonify({"error": f"Missing required field: {str(e)}"}), 400
+    except (ValueError, TypeError) as e:
+        logger.error(f"❌ Invalid data format for user {g.user_id}: {str(e)}")
+        return jsonify({"error": f"Invalid data format: {str(e)}"}), 400
     except Exception as e:
-        logger.error(f"Error setting location: {e}")
-        return jsonify({"error": e}), 409
+        logger.exception(f"❌ Unexpected error in set_location for user {g.user_id}")
+        return jsonify({"error": "Internal server error"}), 500
     
     
 
@@ -124,8 +159,11 @@ def get_user_location(username):
                 return jsonify({"error": "User not found"}), 404
             user_id = user_data["id"]
             interactions_crud = Interactions(connection_pool, g.user_id, user_id)
+            # Check if blocked in either direction
             if interactions_crud.is_blocked():
                 return jsonify({"error": "You are blocked by this user"}), 403
+            if interactions_crud.did_i_block():
+                return jsonify({"error": "You have blocked this user"}), 403
 
         location_data = location_crud.get_user_location(user_id)
         if not location_data:

@@ -289,7 +289,8 @@ const AccountSettingsPage = () => {
   const [addingTag, setAddingTag] = useState(false);
 
   // Images
-  const [images, setImages] = useState([]); // existing images { id, url }
+  const [profilePicture, setProfilePicture] = useState(null); // Separate state for profile picture
+  const [images, setImages] = useState([]); // existing additional images
   const [newProfilePic, setNewProfilePic] = useState(null);
   const [newImages, setNewImages] = useState([]); // files selected for upload
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -342,7 +343,17 @@ const AccountSettingsPage = () => {
         setStatus("Error loading profile");
       }
       try {
-        // 2) Load user's images - using correct endpoint
+        // 2a) Load profile picture separately
+        const picRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_pic/me");
+        const picData = await picRes.json();
+        if (picRes.ok && picData?.result) {
+          setProfilePicture(toAbsoluteUrl(picData.result));
+        }
+      } catch (e) {
+        console.warn("Failed to load profile picture", e);
+      }
+      try {
+        // 2b) Load additional images
         const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
         const imgData = await imgRes.json();
         if (imgRes.ok && imgData?.result) {
@@ -353,7 +364,7 @@ const AccountSettingsPage = () => {
             }
             return {
               ...img,
-              url: toAbsoluteUrl(img.url)
+              url: toAbsoluteUrl(img.url || img.image_url)
             };
           });
           setImages(imagesWithAbsoluteUrls);
@@ -381,7 +392,7 @@ const AccountSettingsPage = () => {
       }
       try {
         // watchers list
-        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_vistors");
+        const watchRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_visitors");
         const watchData = await watchRes.json();
         if (watchRes.ok && watchData?.result) setWatchers(watchData.result);
       } catch (_) {
@@ -404,17 +415,91 @@ const AccountSettingsPage = () => {
    * Use browser geolocation to set lat/lng/accuracy. On failure the fields
    * remain unchanged. Users can override the text location manually.
    */
-  const locateByGPS = () => {
-    if (!navigator.geolocation) return;
+  const locateByGPS = async () => {
+    if (!navigator.geolocation) {
+      setStatus({ type: "error", msg: "❌ Geolocation is not supported by your browser" });
+      return;
+    }
+
+    // Check permission status first
+    try {
+      if (navigator.permissions) {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        
+        if (permission.state === 'denied') {
+          setStatus({
+            type: "error",
+            msg: "📍 Location access is blocked. Click the lock icon (🔒) in your address bar and allow location access, then refresh and try again."
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      // Permission API not supported, continue anyway
+      console.log("Permission API not available");
+    }
+
     setLocating(true);
+    setStatus(null);
+    
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLat(Number(pos.coords.latitude.toFixed(6)));
         setLng(Number(pos.coords.longitude.toFixed(6)));
         setAccuracy(Math.round(pos.coords.accuracy));
         setLocating(false);
+        setStatus({ type: "success", msg: "✅ Location updated successfully" });
       },
-      () => setLocating(false),
+      async (error) => {
+        setLocating(false);
+        
+        // Try IP-based fallback automatically
+        try {
+          const fallbackRes = await fetchWithAuth("http://localhost:5000/api/profile/detect_location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+          });
+          
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.location) {
+              setLocation(fallbackData.location);
+              if (fallbackData.latitude && fallbackData.longitude) {
+                setLat(Number(fallbackData.latitude));
+                setLng(Number(fallbackData.longitude));
+                setAccuracy(fallbackData.accuracy || 5000);
+              }
+              setStatus({
+                type: "success",
+                msg: "📍 Location detected from your IP address: " + fallbackData.location + " (You can update this manually if needed)"
+              });
+              return;
+            }
+          }
+        } catch (ipError) {
+          console.error("IP fallback failed:", ipError);
+        }
+        
+        // If IP fallback also fails, show appropriate message
+        let message = "Failed to get your location. ";
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = "📍 Location access denied. We tried to detect from your IP but it didn't work. Click the lock icon (🔒) in your address bar, allow location access, then refresh and try again.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = "❌ Location information is unavailable. Please enter your location manually.";
+            break;
+          case error.TIMEOUT:
+            message = "⏱️ Location request timed out. Please try again.";
+            break;
+          default:
+            message = "❌ An unknown error occurred getting your location.";
+        }
+        
+        setStatus({ type: "error", msg: message });
+      },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
@@ -521,7 +606,14 @@ const AccountSettingsPage = () => {
         throw new Error(data?.error || "Failed to update profile picture");
       }
       setNewProfilePic(null);
-      // reload images using correct endpoint
+      // Reload profile picture separately
+      const picRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile_pic/me");
+      const picData = await picRes.json();
+      if (picRes.ok && picData?.result) {
+        setProfilePicture(toAbsoluteUrl(picData.result));
+      }
+      
+      // Also reload additional images in case any updates
       const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
       const imgData = await imgRes.json();
       if (imgRes.ok && imgData?.result) {
@@ -531,7 +623,7 @@ const AccountSettingsPage = () => {
           }
           return {
             ...img,
-            url: toAbsoluteUrl(img.url)
+            url: toAbsoluteUrl(img.url || img.image_url)
           };
         });
         setImages(imagesWithAbsoluteUrls);
@@ -565,8 +657,21 @@ const AccountSettingsPage = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to upload images");
       if (data?.image_paths) {
-        // Append to existing images list
-        setImages((prev) => [...prev, ...data.image_paths.map((p) => ({ url: p }))]);
+        // Reload all images to ensure consistency
+        const imgRes = await fetchWithAuth("http://localhost:5000/api/profile/get_images/me");
+        const imgData = await imgRes.json();
+        if (imgRes.ok && imgData?.result) {
+          const imagesWithAbsoluteUrls = imgData.result.map(img => {
+            if (typeof img === 'string') {
+              return toAbsoluteUrl(img);
+            }
+            return {
+              ...img,
+              url: toAbsoluteUrl(img.url || img.image_url)
+            };
+          });
+          setImages(imagesWithAbsoluteUrls);
+        }
       }
       setNewImages([]);
       setStatus("✅ Images uploaded successfully!");
@@ -665,24 +770,20 @@ const AccountSettingsPage = () => {
         </button>
         <h1>Account Settings</h1>
 
-        {/* Fame rating & social stats */}
-        <div className="fame-section">
-          {fameRating !== null && (
+        {/* Fame rating only */}
+        {fameRating !== null && (
+          <div className="fame-section">
             <p className="fame-rating">Fame rating: {fameRating}</p>
-          )}
-          <p className="social-stats">
-            {watchers.length} view{watchers.length === 1 ? "" : "s"}, {likers.length} like
-            {likers.length === 1 ? "" : "s"}
-          </p>
-        </div>
+          </div>
+        )}
 
         {/* Profile images management */}
         <div className="settings-section">
           <h2>Profile Photo</h2>
           <div className="current-images">
-            {images.length > 0 ? (
+            {profilePicture ? (
               <img
-                src={images[0].url || images[0]}
+                src={profilePicture}
                 alt="Current profile"
                 className="profile-thumb"
               />
@@ -690,11 +791,18 @@ const AccountSettingsPage = () => {
               <span>No profile picture</span>
             )}
           </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setNewProfilePic(e.target.files?.[0] || null)}
-          />
+          <div className="file-input-wrapper">
+            <input
+              type="file"
+              accept="image/*"
+              id="profile-pic-input"
+              onChange={(e) => setNewProfilePic(e.target.files?.[0] || null)}
+            />
+            <label htmlFor="profile-pic-input" className="file-input-label">
+              Choose File
+            </label>
+            <span className="file-name">{newProfilePic?.name || 'No file chosen'}</span>
+          </div>
           <div className="actions">
             <button className="update-btn" disabled={!newProfilePic || saving} onClick={updateProfilePicture}>
               Update Profile Picture
@@ -705,12 +813,12 @@ const AccountSettingsPage = () => {
         <div className="settings-section">
           <h2>Additional Photos</h2>
           <div className="current-images-list">
-            {images.slice(1).length > 0 ? (
-              images.slice(1).map((img, idx) => (
+            {images.length > 0 ? (
+              images.map((img, idx) => (
                 <img
                   key={idx}
-                  src={img.url || img}
-                  alt={`Photo ${idx + 2}`}
+                  src={typeof img === 'string' ? img : (img.url || img.image_url)}
+                  alt={`Additional ${idx + 1}`}
                   className="photo-thumb"
                 />
               ))
@@ -718,12 +826,21 @@ const AccountSettingsPage = () => {
               <span>No additional photos</span>
             )}
           </div>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={onSelectNewImages}
-          />
+          <div className="file-input-wrapper">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              id="additional-photos-input"
+              onChange={onSelectNewImages}
+            />
+            <label htmlFor="additional-photos-input" className="file-input-label">
+              Choose Files
+            </label>
+            <span className="file-name">
+              {newImages.length > 0 ? `${newImages.length} file(s) selected` : 'No files chosen'}
+            </span>
+          </div>
           <div className="actions">
             <button
               className="update-btn"
@@ -795,40 +912,46 @@ const AccountSettingsPage = () => {
               <label>Gender</label>
               <select value={gender} onChange={(e) => setGender(e.target.value)}>
                 <option value="">Select…</option>
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-                <option value="Non-binary">Non-binary</option>
-                <option value="Other">Other</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other / Non-binary</option>
               </select>
             </div>
             <div className="inline-field">
               <label>Interested In</label>
               <select value={sexualPreferences} onChange={(e) => setSexualPreferences(e.target.value)}>
                 <option value="">Select…</option>
-                <option value="Women">Women</option>
-                <option value="Men">Men</option>
-                <option value="Both">Both</option>
-                <option value="All">All</option>
+                <option value="female">Women</option>
+                <option value="male">Men</option>
+                <option value="both">Everyone</option>
               </select>
             </div>
           </div>
 
-          <input
-            type="text"
-            placeholder="Location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
+          <div className="location-field">
+            <label>Location</label>
+            <input
+              type="text"
+              placeholder="Enter your location (e.g., Paris, France)"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </div>
           <div className="coords-group">
             <button type="button" className="gps-btn" onClick={locateByGPS} disabled={locating}>
-              {locating ? "Locating…" : "Use my GPS"}
+              {locating ? "Locating…" : "📍 Use my GPS location"}
             </button>
             {lat && lng && (
               <small className="coords-hint">
-                Detected: {lat}, {lng} (±{accuracy}m)
+                ✓ GPS coordinates detected: {lat}, {lng} (accuracy: ±{accuracy}m)
               </small>
             )}
           </div>
+          <p className="location-note">
+            <small>
+              💡 You can manually enter your location or use GPS. If GPS doesn't work, make sure location permissions are enabled in your browser settings.
+            </small>
+          </p>
 
           <div className="actions">
             <button className="update-btn" disabled={saving} onClick={handleInfoUpdate}>
@@ -844,13 +967,13 @@ const AccountSettingsPage = () => {
               tags.map((t, i) => (
                 <span key={i} className="tag-item">
                   {t}
-                  <button type="button" onClick={() => handleRemoveTag(t)} title="Remove">
+                  <button type="button" className="remove-tag-btn" onClick={() => handleRemoveTag(t)} title="Remove">
                     ✕
                   </button>
                 </span>
               ))
             ) : (
-              <span>No interests yet.</span>
+              <span className="no-interests">No interests yet. Add your hobbies and interests!</span>
             )}
           </div>
           <div className="add-tag-row">
@@ -859,29 +982,11 @@ const AccountSettingsPage = () => {
               placeholder="Add interest"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
             />
-            <button type="button" disabled={addingTag} onClick={handleAddTag}>
+            <button type="button" className="add-tag-btn" disabled={addingTag || !newTag.trim()} onClick={handleAddTag}>
               {addingTag ? "Adding…" : "Add"}
             </button>
-          </div>
-        </div>
-
-        {/* Notification preferences placeholder */}
-        <div className="settings-section">
-          <h2>Notification Preferences</h2>
-          <div className="checkbox-group">
-            <label>
-              <input type="checkbox" /> <span>New Matches</span>
-            </label>
-            <label>
-              <input type="checkbox" /> <span>Messages</span>
-            </label>
-            <label>
-              <input type="checkbox" /> <span>Profile Updates</span>
-            </label>
-          </div>
-          <div className="actions">
-            <button className="update-btn">Save Preferences</button>
           </div>
         </div>
 

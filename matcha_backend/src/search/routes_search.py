@@ -88,7 +88,12 @@ def search_users():
         
         # Location (city/country)
         if 'location' in request_data:
-            criteria['location'] = request_data['location']
+            from utils.ip_geolocation import normalize_country_name
+            location = request_data['location'].copy() if isinstance(request_data['location'], dict) else {}
+            # Normalize country name for consistent searching
+            if 'country' in location and location['country']:
+                location['country'] = normalize_country_name(location['country'])
+            criteria['location'] = location
         
         # Coordinates (latitude/longitude with radius)
         if 'coordinates' in request_data:

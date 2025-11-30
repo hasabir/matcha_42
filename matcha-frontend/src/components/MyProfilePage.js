@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchWithAuth, api, BASE } from "../utils/api";
+import { fetchWithAuth, api, BASE, isMatched } from "../utils/api";
 import ProfileSuggestions from "./ProfileSuggestions";
 import "./MyProfilePage.css";
 
-const FALLBACK_AVATAR = "https://static-00.iconduck.com/assets.00/user-avatar-1024x1024-2xhpdo1n.png";
+const FALLBACK_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const API_BASE = process.env.REACT_APP_API_BASE || BASE;
 
 // Helper function for absolute URLs
@@ -147,7 +147,7 @@ const MyProfilePage = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate]); // Only navigate is a dependency
 
   // Enhanced fetchStats that also gets dashboard data
   const fetchStats = useCallback(async () => {
@@ -156,7 +156,7 @@ const MyProfilePage = () => {
 
       // Fetch all stats in parallel using fetchWithAuth
       const [viewsResponse, likesResponse, matchesResponse] = await Promise.all([
-        fetchWithAuth("http://localhost:5000/api/profile/get_profile_vistors"),
+        fetchWithAuth("http://localhost:5000/api/profile/get_profile_visitors"),
         fetchWithAuth("http://localhost:5000/api/interactions/who_liked_me"),
         fetchWithAuth("http://localhost:5000/api/interactions/my_connections")
       ]);
@@ -168,7 +168,7 @@ const MyProfilePage = () => {
         matches: 0
       };
 
-      // Handle views and viewers
+      // Handle views and viewers - now returns complete user objects
       if (viewsResponse.ok) {
         const viewsData = await viewsResponse.json();
         const visitorsData = viewsData.result || [];
@@ -179,62 +179,94 @@ const MyProfilePage = () => {
           const viewersWithPics = await Promise.all(
             visitorsData.slice(0, 12).map(async (visitor) => {
               try {
+                // Visitor already has username and other data from backend
                 const picRes = await api.userProfilePic(visitor.username);
                 const picData = await picRes.json();
-                const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+                const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result || visitor.profile_picture) : FALLBACK_AVATAR;
                 return {
-                  ...visitor,
+                  username: visitor.username,
+                  first_name: visitor.first_name,
+                  last_name: visitor.last_name,
                   avatar: picUrl || FALLBACK_AVATAR,
                 };
-              } catch {
-                return { ...visitor, avatar: FALLBACK_AVATAR };
+              } catch (err) {
+                console.error(`Error loading picture for ${visitor.username}:`, err);
+                return { 
+                  username: visitor.username,
+                  first_name: visitor.first_name,
+                  last_name: visitor.last_name,
+                  avatar: FALLBACK_AVATAR 
+                };
               }
             })
           );
           setViewers(viewersWithPics);
         }
-        console.log("Views:", newStats.views);
+      } else {
+        console.warn("Failed to fetch viewers:", viewsResponse.status);
       }
 
       // Handle likes (people who liked me)
       if (likesResponse.ok) {
         const likesData = await likesResponse.json();
-        const likersData = likesData || [];
+        const likersData = likesData.result || [];
         newStats.likes = likersData.length;
         
         // Get likers with details (limited to 16 for display)
         if (likersData.length > 0) {
           const likersWithDetails = await Promise.all(
-            likersData.slice(0, 16).map(async (username) => {
+            likersData.slice(0, 16).map(async (liker) => {
               try {
-                const [matchRes, picRes] = await Promise.all([
-                  api.isMatched(username),
+                // liker is an object with username, first_name, etc. from backend
+                const username = liker.username || liker;
+                const [matchData, picRes] = await Promise.all([
+                  isMatched(username),
                   api.userProfilePic(username)
                 ]);
-                const matchData = await matchRes.json();
-                const picData = await picRes.json();
-                const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+                
+                const picData = await picRes.json().catch(() => null);
+                
+                let picUrl = FALLBACK_AVATAR;
+                if (picRes.ok && picData?.result) {
+                  picUrl = toAbsoluteUrl(picData.result);
+                } else if (liker.profile_picture) {
+                  picUrl = toAbsoluteUrl(liker.profile_picture);
+                }
+                // Silently use fallback if no picture found
 
                 return {
                   username,
-                  matched: matchRes.ok && matchData?.result === true,
-                  avatar: picUrl || FALLBACK_AVATAR,
+                  first_name: liker.first_name,
+                  last_name: liker.last_name,
+                  matched: matchData?.result === true,
+                  avatar: picUrl,
                 };
-              } catch {
-                return { username, matched: false, avatar: FALLBACK_AVATAR };
+              } catch (err) {
+                console.error(`Error loading details for ${liker.username}:`, err);
+                const username = liker.username || liker;
+                return { 
+                  username, 
+                  first_name: liker.first_name,
+                  last_name: liker.last_name,
+                  matched: false, 
+                  avatar: FALLBACK_AVATAR 
+                };
               }
             })
           );
           setLikers(likersWithDetails);
         }
-        console.log("Likes:", newStats.likes);
+      } else {
+        console.warn("Failed to fetch likers:", likesResponse.status);
       }
 
       // Handle matches  
       if (matchesResponse.ok) {
         const matchesData = await matchesResponse.json();
-        newStats.matches = matchesData.length || 0;
-        console.log("Matches:", newStats.matches);
+        const connectionsData = matchesData.result || [];
+        newStats.matches = Array.isArray(connectionsData) ? connectionsData.length : 0;
+      } else {
+        console.warn("Failed to fetch matches:", matchesResponse.status);
       }
 
       // Also fetch users I liked
@@ -246,20 +278,26 @@ const MyProfilePage = () => {
           const likedWithDetails = await Promise.all(
             likedData.result.slice(0, 16).map(async (username) => {
               try {
-                const [matchRes, picRes] = await Promise.all([
-                  api.isMatched(username),
+                const [matchData, picRes] = await Promise.all([
+                  isMatched(username),
                   api.userProfilePic(username)
                 ]);
-                const matchData = await matchRes.json();
-                const picData = await picRes.json();
-                const picUrl = picRes.ok ? toAbsoluteUrl(picData?.result) : FALLBACK_AVATAR;
+                
+                const picData = await picRes.json().catch(() => null);
+                
+                let picUrl = FALLBACK_AVATAR;
+                if (picRes.ok && picData?.result) {
+                  picUrl = toAbsoluteUrl(picData.result);
+                }
+                // Silently use fallback if no picture found
 
                 return {
                   username,
-                  matched: matchRes.ok && matchData?.result === true,
-                  avatar: picUrl || FALLBACK_AVATAR,
+                  matched: matchData?.result === true,
+                  avatar: picUrl,
                 };
-              } catch {
+              } catch (err) {
+                console.error(`Error loading details for ${username}:`, err);
                 return { username, matched: false, avatar: FALLBACK_AVATAR };
               }
             })
@@ -270,7 +308,6 @@ const MyProfilePage = () => {
         console.error("Failed to load liked users:", err);
       }
 
-      console.log("Final stats:", newStats);
       setStats(newStats);
     } catch (err) {
       console.error("Error fetching stats:", err);
@@ -281,7 +318,7 @@ const MyProfilePage = () => {
         matches: 0
       });
     }
-  }, []);
+  }, []); // No dependencies - function doesn't depend on props or state
 
   // Effect runs only once on mount
   useEffect(() => {
@@ -879,7 +916,12 @@ const MyProfilePage = () => {
                 className="user-card"
                 onClick={() => navigate(`/profile/${u.username}`)}
               >
-                <img src={u.avatar} alt={u.username} onError={onImgError} />
+                <img 
+                  src={u.avatar || FALLBACK_AVATAR} 
+                  alt={u.username} 
+                  onError={onImgError}
+                  style={{ objectFit: 'cover' }}
+                />
                 <p className="username">{u.username}</p>
                 {u.matched && <span className="match-badge">Matched</span>}
               </div>

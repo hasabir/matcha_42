@@ -505,12 +505,23 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   margin-bottom: 2rem;
   border: 1px solid rgba(236, 72, 153, 0.1);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .profile-details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+/* Ensure single column on smaller screens */
+@media (max-width: 640px) {
+  .profile-details-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .detail-card {
@@ -522,6 +533,9 @@
   gap: 1rem;
   transition: all 0.3s ease;
   border: 1px solid rgba(236, 72, 153, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .detail-card:hover {
@@ -591,6 +605,9 @@
   padding: 2rem;
   border: 1px solid rgba(245, 158, 11, 0.2);
   transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .photo-gallery-card:hover {
@@ -1522,6 +1539,21 @@
 
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 0.875rem;
+  }
+
+  .info-item {
+    padding: 0.875rem;
+    border-radius: 12px;
+  }
+
+  .info-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .info-item span {
+    font-size: 0.9rem;
   }
 
   .photos-grid {
@@ -1534,17 +1566,116 @@
   }
 
   .profile-details {
-    padding: 1.5rem;
+    padding: 1.25rem;
+  }
+
+  .name-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .name-section h2 {
+    font-size: 1.75rem;
+  }
+
+  .username {
+    font-size: 1.1rem;
+  }
+
+  .bio-section,
+  .interests-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .bio-section h3,
+  .interests-section h3 {
+    font-size: 1.2rem;
+  }
+
+  .bio-section p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .interest-tag {
+    padding: 0.45rem 1.1rem;
+    font-size: 0.85rem;
   }
 
   .quick-actions {
     padding: 1.5rem;
+    border-radius: 20px;
+  }
+
+  .quick-actions h3 {
+    font-size: 1.3rem;
+  }
+
+  .action-item {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .action-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .action-title {
+    font-size: 0.95rem;
+  }
+
+  .action-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .profile-info-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .detail-card {
+    padding: 1.25rem;
+    border-radius: 14px;
+    gap: 0.875rem;
+  }
+
+  .detail-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1.35rem;
+    border-radius: 10px;
+  }
+
+  .detail-label {
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .detail-value {
+    font-size: 1.05rem;
+  }
+
+  .bio-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
   }
 }
 
 @media (max-width: 480px) {
+  .my-profile-page {
+    padding: 0.75rem 0.5rem;
+  }
+
   .page-title {
-    font-size: 1.75rem;
+    font-size: 1.65rem;
   }
 
   .stat-value {
@@ -1552,15 +1683,280 @@
   }
 
   .stat-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 
   .edit-btn {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.85rem;
+  }
+
+  .profile-details {
+    padding: 1rem;
+  }
+
+  .name-section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
   }
 
   .name-section h2 {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
+  }
+
+  .username {
+    font-size: 1rem;
+  }
+
+  .info-grid {
+    gap: 0.75rem;
+  }
+
+  .info-item {
+    padding: 0.75rem;
+    border-radius: 10px;
+    gap: 0.65rem;
+  }
+
+  .info-item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .info-item span {
+    font-size: 0.85rem;
+  }
+
+  .bio-section,
+  .interests-section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .bio-section h3,
+  .interests-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .bio-section p {
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .interests-tags {
+    gap: 0.65rem;
+  }
+
+  .interest-tag {
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    border-radius: 40px;
+  }
+
+  .quick-actions {
+    padding: 1.25rem;
+    border-radius: 18px;
+  }
+
+  .quick-actions h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .actions-list {
+    gap: 0.875rem;
+  }
+
+  .action-item {
+    padding: 0.875rem;
+    border-radius: 10px;
+    gap: 0.875rem;
+  }
+
+  .action-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .action-title {
+    font-size: 0.9rem;
+  }
+
+  .action-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .profile-info-card {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: 14px;
+  }
+
+  .profile-details-grid {
+    gap: 0.875rem;
+  }
+
+  .detail-card {
+    padding: 1.1rem;
+    border-radius: 12px;
+    gap: 0.75rem;
+  }
+
+  .detail-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 1.25rem;
+    border-radius: 8px;
+  }
+
+  .detail-label {
+    font-size: 0.75rem;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.3px;
+  }
+
+  .detail-value {
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+
+  .bio-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .photo-gallery-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .my-profile-page {
+    padding: 0.65rem 0.4rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .profile-details {
+    padding: 0.875rem;
+  }
+
+  .name-section {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .name-section h2 {
+    font-size: 1.35rem;
+  }
+
+  .username {
+    font-size: 0.95rem;
+  }
+
+  .info-grid {
+    gap: 0.65rem;
+  }
+
+  .info-item {
+    padding: 0.65rem;
+    gap: 0.55rem;
+  }
+
+  .info-item svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .info-item span {
+    font-size: 0.8rem;
+  }
+
+  .bio-section,
+  .interests-section {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .bio-section h3,
+  .interests-section h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .bio-section p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .interests-tags {
+    gap: 0.55rem;
+  }
+
+  .interest-tag {
+    padding: 0.35rem 0.875rem;
+    font-size: 0.75rem;
+  }
+
+  .profile-info-card {
+    padding: 1.1rem;
+    border-radius: 12px;
+  }
+
+  .profile-details-grid {
+    gap: 0.75rem;
+  }
+
+  .detail-card {
+    padding: 1rem;
+    gap: 0.65rem;
+  }
+
+  .detail-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 1.15rem;
+  }
+
+  .detail-label {
+    font-size: 0.7rem;
+  }
+
+  .detail-value {
+    font-size: 0.95rem;
+  }
+
+  .bio-text {
+    font-size: 0.85rem;
+  }
+
+  .quick-actions {
+    padding: 1.1rem;
+  }
+
+  .quick-actions h3 {
+    font-size: 1.1rem;
+  }
+
+  .action-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .action-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .action-title {
+    font-size: 0.85rem;
+  }
+
+  .action-subtitle {
+    font-size: 0.7rem;
   }
 }

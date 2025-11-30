@@ -203,6 +203,12 @@
   margin-bottom: 0.5rem;
 }
 
+/* Required field asterisk */
+.form-label::after {
+  color: #ef4444;
+  margin-left: 0.25rem;
+}
+
 .form-input {
   width: 100%;
   padding: 0.875rem 1rem;
@@ -224,6 +230,38 @@
   color: #9ca3af;
 }
 
+/* Error state for inputs */
+.form-input.input-error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.form-input.input-error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Error message styling */
+.error-message {
+  display: block;
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+  font-weight: 500;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -234,6 +272,41 @@
   font-size: 0.75rem;
   color: #6b7280;
   margin-top: 0.25rem;
+  display: block;
+}
+
+/* Success hint (e.g., username valid) */
+.form-hint:has(✓) {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+/* ==================== PASSWORD STRENGTH INDICATOR ==================== */
+
+.password-strength-indicator {
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.strength-bar-container {
+  width: 100%;
+  height: 4px;
+  background-color: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.strength-bar {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 2px;
+}
+
+.strength-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: block;
 }
 
 /* ==================== SPINNER ==================== */

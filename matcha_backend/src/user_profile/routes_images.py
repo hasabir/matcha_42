@@ -25,6 +25,7 @@ def update_profile_picture():
     '''Handle profile picture operations for the logged in user
     PUT: Upload a new profile picture (expects file in 'profile_pic' field)
     DELETE: Remove the profile picture (sets to null in database)
+    Note: Profile picture is separate from the 5 image limit for gallery images
     '''
     try:
         connection_pool = current_app.config["CONNECTION_POOL"]
@@ -69,6 +70,7 @@ def update_profile_picture():
 def upload_images():
     '''upload multiple images for the logged in user
         Expects files in the 'images' field of the form data.
+        Maximum 5 images per user enforced.
         '''
     try:
         if 'images' not in request.files:
@@ -82,6 +84,30 @@ def upload_images():
         profile_crud = Profile(connection_pool)
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        # Check current number of images
+        existing_images = profile_crud.get_images(g.user_id) or []
+        current_count = len(existing_images)
+        upload_count = len(uploaded_files)
+        
+        # Enforce maximum 5 images limit
+        MAX_IMAGES = 5
+        if current_count >= MAX_IMAGES:
+            return jsonify({
+                "error": f"Maximum of {MAX_IMAGES} images allowed. Please delete existing images before uploading new ones.",
+                "current_count": current_count,
+                "max_allowed": MAX_IMAGES
+            }), 400
+        
+        if current_count + upload_count > MAX_IMAGES:
+            allowed_count = MAX_IMAGES - current_count
+            return jsonify({
+                "error": f"Cannot upload {upload_count} images. You can only upload {allowed_count} more image(s) to reach the maximum of {MAX_IMAGES}.",
+                "current_count": current_count,
+                "max_allowed": MAX_IMAGES,
+                "allowed_uploads": allowed_count
+            }), 400
+        
         image_paths = []
         for file in uploaded_files:
             logger.debug(f"$$$$$$$$$$$$$$$$$$$ Processing file: {file.filename}")
@@ -89,7 +115,13 @@ def upload_images():
             url_path = url_for('static', filename=path)
             profile_crud.insert_images(url_path, g.user_id)
             image_paths.append(url_path)
-        return jsonify({"status": "ok", "image_paths": image_paths}), 200
+        
+        return jsonify({
+            "status": "ok",
+            "image_paths": image_paths,
+            "total_images": current_count + upload_count,
+            "max_allowed": MAX_IMAGES
+        }), 200
 
     except BadRequestKeyError:
         return jsonify({"error": "KeyError, files must be stored with key = images"}), 415
@@ -110,33 +142,37 @@ def get_user_profile_pic(username):
         if not  connection_pool:
             return jsonify({"error": "Database connection pool is not available"}), 500
         profile_crud = Profile(connection_pool)
-
-
         user_crud = User(connection_pool)
         
-        if username == "me" \
-            or user_crud.get_user_by('id', g.user_id, 'username')["username"]["username"] == username:
+        # Get current user data
+        current_user = user_crud.get_user_by('id', g.user_id, 'username')
+        if not current_user or 'username' not in current_user:
+            return jsonify({"error": "Current user not found"}), 404
+            
+        current_username = current_user['username']
+        
+        if username == "me" or current_username == username:
             profile_data = profile_crud.get_profile_by_user_id(g.user_id)
-
         else:
             user_data = user_crud.get_user_by_username(username=username)
             if not user_data:
                 return jsonify({"error": "user not found"}), 404
-            interactions_crud = Interactions(connection_pool, g.user_id, user_data["id"])
-            
-            if interactions_crud.is_blocked():
-                return jsonify({"error": "You are blocked by this user"}), 403
+            # Allow profile picture access even if users are blocked
+            # Profile pictures are non-sensitive and needed for display in lists
             profile_data = profile_crud.get_profile_by_user_id(user_data["id"])
 
-        return jsonify({"status": "ok", "result": profile_data["profile_picture"]})
+        # Handle missing profile picture gracefully
+        if not profile_data or not profile_data.get("profile_picture"):
+            return jsonify({"status": "ok", "result": None}), 200
+            
+        return jsonify({"status": "ok", "result": profile_data["profile_picture"]}), 200
 
-
-
-    except KeyError:
+    except KeyError as e:
+        current_app.logger.error(f"KeyError retrieving profile picture for {username}: {str(e)}")
         return jsonify({"error": "Profile picture not found in database"}), 404
     except Exception as e:
-        current_app.logger.error(f"Error retrieving profile picture: {str(e)}")
-        return jsonify({"error": str(e)}), 409
+        current_app.logger.error(f"Error retrieving profile picture for {username}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -164,8 +200,11 @@ def get_images(username):
 
         interactions_crud = Interactions(connection_pool, g.user_id, user_data["id"])
             
+        # Check if blocked in either direction
         if interactions_crud.is_blocked():
             return jsonify({"error": "You are blocked by this user"}), 403
+        if interactions_crud.did_i_block():
+            return jsonify({"error": "You have blocked this user"}), 403
         
         user_images = profile_crud.get_images(user_data["id"])
 

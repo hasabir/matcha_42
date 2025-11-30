@@ -7,7 +7,7 @@ class SocketManager:
         self.socketio = None
 
     def init_app(self):
-        self.socketio = current_app.config.get("socketio")
+        self.socketio = current_app.config.get("SOCKETIO")
 
     def emit_event(self, event, data, room=None):
         if self.socketio:

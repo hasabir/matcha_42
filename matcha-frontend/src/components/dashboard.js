@@ -5,7 +5,7 @@ import { api, BASE } from "../utils/api";
 import "./dashboard.css";
 
 const FALLBACK_AVATAR =
-  "https://static-00.iconduck.com/assets.00/user-avatar-1024x1024-2xhpdo1n.png";
+  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 const API_BASE = process.env.REACT_APP_API_BASE || BASE;
 

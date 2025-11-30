@@ -3,6 +3,7 @@
   gap: 1rem;
   padding: 1rem 2rem;
   background-color: #f8f9fa;
+  flex-wrap: wrap;
 }
 
 .router-nav a {
@@ -13,4 +14,27 @@
 
 .router-nav a:hover {
   text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .router-nav {
+    padding: 0.875rem 1.5rem;
+    gap: 0.75rem;
+  }
+
+  .router-nav a {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .router-nav {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .router-nav a {
+    font-size: 0.85rem;
+  }
 }

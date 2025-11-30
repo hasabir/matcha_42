@@ -1,23 +1,25 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
     gcc \
-    python3-dev \
-    # postgresql-dev \
-    libpq-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first for better caching
+COPY requirements.txt .
 
-COPY build/docker/requirements.txt .
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application
 COPY . .
 
+# Expose the port the app runs on
 EXPOSE 5000
-CMD ["python3", "app.py"]
 
-
+# Command to run the application
+CMD ["python", "app.py"]

@@ -37,6 +37,11 @@ const UserProfilePage = () => {
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        // Check if it's a blocking error
+        if (response.status === 403) {
+          throw new Error(errorData.error || "You cannot view this profile");
+        }
         throw new Error("Failed to fetch profile");
       }
 
@@ -130,19 +135,29 @@ const UserProfilePage = () => {
 
     try {
       const token = localStorage.getItem("access_token");
-      const response = await fetch(`http://localhost:5000/api/interactions/block/${profile.username}`, {
+      const response = await fetch(`http://localhost:5000/api/interactions/block`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          blocked_user: profile.username,
+        }),
       });
 
       if (response.ok) {
-        alert(`You have blocked ${profile.username}`);
-        navigate("/discover");
+        alert(`You have blocked ${profile.username}. You will no longer see each other's profiles or be able to chat.`);
+        // Clear any cached data and navigate away
+        localStorage.removeItem(`profile_${profile.username}`);
+        navigate("/browse");
+      } else {
+        const errorData = await response.json();
+        alert(`Error blocking user: ${errorData.error || 'Unknown error'}`);
       }
     } catch (err) {
       console.error("Error blocking user:", err);
+      alert("An error occurred while blocking the user");
     }
   };
 
@@ -226,10 +241,13 @@ const UserProfilePage = () => {
     );
   }
 
-  const allImages = [
-    profile.profile_picture,
-    ...(profile.images || []).map(img => getImageUrl(img))
-  ].filter(Boolean);
+  // Build all images: profile picture first, then additional images (excluding duplicates)
+  const profilePicUrl = profile.profile_picture;
+  const additionalImages = (profile.images || [])
+    .map(img => getImageUrl(img))
+    .filter(url => url && url !== profilePicUrl); // Exclude duplicates
+  
+  const allImages = [profilePicUrl, ...additionalImages].filter(Boolean);
 
   return (
     <div className="user-profile-page">

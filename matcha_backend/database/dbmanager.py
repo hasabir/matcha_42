@@ -129,9 +129,15 @@ class DBManager:
                 set_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in data.keys()])
                 query += f" ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_clause}"
         
+        # Junction tables without ID columns (only composite keys)
+        junction_tables = ['user_tags', 'likes', 'connections', 'visits', 'blocks', 'reports']
+        
         # Determine the ID column name based on table
         if returning_column:
             id_column = returning_column
+        elif table in junction_tables:
+            # Junction tables don't have ID columns, so don't add RETURNING clause
+            id_column = None
         else:
             # Map table names to their ID column names
             id_column_map = {
@@ -145,16 +151,25 @@ class DBManager:
             }
             id_column = id_column_map.get(table, 'id')
         
-        query += f" RETURNING {id_column}"
+        # Only add RETURNING clause if there's an ID column
+        if id_column:
+            query += f" RETURNING {id_column}"
         
         conn = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(query, values)
-            result = cursor.fetchone()
-            conn.commit()
-            return result[0] if result else None
+            
+            # Only try to fetch result if we have a RETURNING clause
+            if id_column:
+                result = cursor.fetchone()
+                conn.commit()
+                return result[0] if result else None
+            else:
+                conn.commit()
+                return None
+                
         except Exception as e:
             if conn:
                 conn.rollback()

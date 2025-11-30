@@ -50,7 +50,8 @@ def add_tags():
             profile_crud.add_user_interests(g.user_id, tag_result["tag_id"])
         return jsonify({"status": "ok"}), 201
     except Exception as e:
-        return jsonify({"error": e}), 409
+        logger.error(f"Error adding tags: {str(e)}")
+        return jsonify({"error": str(e)}), 409
 
 
 @profile_bp.route("/delete_tag", methods=["POST"])
@@ -76,7 +77,8 @@ def delet_tag():
     except KeyError:
         return jsonify({"error": "requied field <tag>"}), 415
     except Exception as e:
-        return jsonify({"error": e}), 409
+        logger.error(f"Error deleting tag: {str(e)}")
+        return jsonify({"error": str(e)}), 409
 
     
 @profile_bp.route("/get_user_tags") #! do I really need this endpoint 🤪
@@ -91,4 +93,5 @@ def get_user_interests():
         result = profile_crud.get_user_interests(g.user_id)
         return jsonify({'result': result}), 200
     except Exception as e:
-        return jsonify({"error": e}), 409
+        logger.error(f"Error getting user tags: {str(e)}")
+        return jsonify({"error": str(e)}), 409

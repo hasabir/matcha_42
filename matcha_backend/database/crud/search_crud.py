@@ -35,7 +35,9 @@ class Search(DBManager):
         coordinates = criteria.get('coordinates', {})
         distance = criteria.get('distance', 10)
         interests = criteria.get('interests', [])
+        interests_match_mode = criteria.get('interests_match_mode', 'OR')  # 'OR' or 'AND'
         fame_rating = criteria.get('fame_rating', {})
+        gender = criteria.get('gender', None)
 
         
         query_parts = [
@@ -67,15 +69,16 @@ class Search(DBManager):
                 sql.SQL("INNER JOIN tags t ON ut.tag_id = t.tag_id")
             ])
         
-        # Age range condition
+        # Age range condition - support partial ranges
         if 'min_age' in age_range and 'max_age' in age_range:
-            # logger.debug(f"✅✅✅✅Age Range: {age_range}")
             conditions.append(sql.SQL("p.age >= %s AND p.age <= %s"))
-            # logger.debug(f"✅✅✅✅Conditions: {conditions}")
             params.extend([age_range['min_age'], age_range['max_age']])
-        # if 'min_age' in age_range and 'max_age' in age_range:
-        #     conditions.append(sql.SQL("p.age BETWEEN %s AND %s"))
-        #     params.extend([age_range['min_age'], age_range['max_age']])
+        elif 'min_age' in age_range:
+            conditions.append(sql.SQL("p.age >= %s"))
+            params.append(age_range['min_age'])
+        elif 'max_age' in age_range:
+            conditions.append(sql.SQL("p.age <= %s"))
+            params.append(age_range['max_age'])
         
         # Location conditions
         if coordinates and 'latitude' in coordinates and 'longitude' in coordinates:
@@ -91,22 +94,50 @@ class Search(DBManager):
                 distance
             ])
         elif location:
+            # Use ILIKE for case-insensitive partial matching
             if 'city' in location and location['city']:
-                conditions.append(sql.SQL("ul.city = %s"))
-                params.append(location['city'])
+                conditions.append(sql.SQL("ul.city ILIKE %s"))
+                params.append(f"%{location['city']}%")
             if 'country' in location and location['country']:
-                conditions.append(sql.SQL("ul.country = %s"))
-                params.append(location['country'])
+                conditions.append(sql.SQL("ul.country ILIKE %s"))
+                params.append(f"%{location['country']}%")
         
-        # Fame rating condition
+        # Fame rating condition - support partial ranges
         if 'min' in fame_rating and 'max' in fame_rating:
             conditions.append(sql.SQL("p.fame_rating BETWEEN %s AND %s"))
             params.extend([fame_rating['min'], fame_rating['max']])
+        elif 'min' in fame_rating:
+            conditions.append(sql.SQL("p.fame_rating >= %s"))
+            params.append(fame_rating['min'])
+        elif 'max' in fame_rating:
+            conditions.append(sql.SQL("p.fame_rating <= %s"))
+            params.append(fame_rating['max'])
         
-        # Interests condition
+        # Gender filter
+        if gender:
+            conditions.append(sql.SQL("p.gender = %s"))
+            params.append(gender)
+        
+        # Interests condition with AND/OR logic
         if interests:
-            conditions.append(sql.SQL("t.tag_name = ANY(%s)"))
-            params.append(interests)
+            if interests_match_mode == 'AND':
+                # AND logic: User must have ALL specified tags
+                # Use a subquery that counts matching tags and ensures count equals number of search tags
+                conditions.append(sql.SQL("""
+                    u.id IN (
+                        SELECT ut2.user_id 
+                        FROM user_tags ut2
+                        INNER JOIN tags t2 ON ut2.tag_id = t2.tag_id
+                        WHERE t2.tag_name = ANY(%s)
+                        GROUP BY ut2.user_id
+                        HAVING COUNT(DISTINCT t2.tag_name) = %s
+                    )
+                """))
+                params.extend([interests, len(interests)])
+            else:
+                # OR logic: User must have AT LEAST ONE of the specified tags (default)
+                conditions.append(sql.SQL("t.tag_name = ANY(%s)"))
+                params.append(interests)
         
         # Build the final query
         base_query = sql.SQL(' ').join(query_parts)
@@ -125,7 +156,7 @@ class Search(DBManager):
         # logger.info(f"Parameters: {params}")
         logger.debug(f"Final Query: {final_query}")
         result = self.execute(final_query, tuple(params))
-        return [row['username'] for row in result]
+        return [row['username'] for row in result] if result else []
     
     def filter_users(self, usernames_list, criteria):
         """Filter users based on criteria and return only usernames."""
@@ -138,8 +169,8 @@ class Search(DBManager):
     def sort_users(self, request_data, user_id):
         """Sort users based on a specified attribute and return only usernames."""
         # Fix 1: Correct the validation logic (use OR instead of AND)
-        if "sort_by" not in request_data or request_data["sort_by"] not in ['age', 'fame_rating', 'interests', 'location']:
-            raise ValueError("Invalid sort_by value. Must be 'age', 'fame_rating', 'interests', or 'location'.")
+        if "sort_by" not in request_data or request_data["sort_by"] not in ['age', 'fame_rating', 'interests', 'location', 'city', 'country']:
+            raise ValueError("Invalid sort_by value. Must be 'age', 'fame_rating', 'interests', 'location', 'city', or 'country'.")
         
         # Fix 2: Correct the order validation logic
         if "order" not in request_data or request_data["order"] not in ['asc', 'desc']:
@@ -150,11 +181,31 @@ class Search(DBManager):
         usernames_list = request_data["usernames"]
         max_distance_km = request_data.get("max_distance_km", 100) if sort_by == "location" else None
         
+        location_crud = Location(self.connection_pool)
+        
         # Fix 3: Handle location sorting separately since it doesn't use SQL query
         if sort_by == 'location':
-            location_crud = Location(self.connection_pool)
-            sorted_users = location_crud.find_nearby_users(user_id, max_distance_km)
-            return sorted_users
+            # Pass usernames_list to filter by the provided list
+            sorted_users = location_crud.find_nearby_users(user_id, max_distance_km, usernames=usernames_list)
+            
+            # Extract only usernames from the result (returns dicts with username and distance_km)
+            usernames_only = [user['username'] for user in sorted_users]
+            
+            # Respect the order parameter (ASC = closest first, DESC = farthest first)
+            if order.lower() == 'desc':
+                usernames_only.reverse()
+            
+            return usernames_only
+        
+        # Handle city sorting
+        if sort_by == 'city':
+            sorted_usernames = location_crud.sort_users_by_city(usernames_list, order)
+            return sorted_usernames
+        
+        # Handle country sorting
+        if sort_by == 'country':
+            sorted_usernames = location_crud.sort_users_by_country(usernames_list, order)
+            return sorted_usernames
         
         # Fix 4: Initialize params variable
         params = ()
@@ -177,8 +228,39 @@ class Search(DBManager):
         # Fix 6: Handle interests sorting
         elif sort_by == 'interests':
             tags = request_data.get("tags", [])
+            
+            # Tags should be provided from filter/search criteria when sorting by interests
+            # If no tags provided, fall back to current user's tags as a reasonable default
             if not tags:
-                raise ValueError("Tags must be provided when sorting by interests.")
+                logger.info(f"No tags provided for interest sorting, using current user's tags as fallback")
+                from database.crud.profile_crud import Profile
+                profile_crud = Profile(self.connection_pool)
+                tags = profile_crud.get_user_interests(user_id)
+                logger.info(f"Using current user tags as fallback: {tags}")
+                
+                if not tags:
+                    # If user has no tags, sort by total number of interests (any interests)
+                    logger.warning(f"User {user_id} has no tags, sorting by total interest count instead")
+                    placeholders = sql.SQL(',').join([sql.Placeholder()] * len(usernames_list))
+                    query = sql.SQL("""
+                        SELECT 
+                            u.username, 
+                            COUNT(ut.user_id) as total_interests_count 
+                        FROM users u
+                        LEFT JOIN user_tags ut ON u.id = ut.user_id
+                        WHERE u.username IN ({usernames})
+                        GROUP BY u.username
+                        ORDER BY total_interests_count {order}
+                    """).format(
+                        usernames=placeholders,
+                        order=sql.SQL(order.upper())
+                    )
+                    params = tuple(usernames_list)
+                    result = self.execute(query, params)
+                    if not result:
+                        return []
+                    sorted_users = [row['username'] for row in result]
+                    return sorted_users
             
             placeholders = sql.SQL(',').join([sql.Placeholder()] * len(usernames_list))
             tag_placeholders = sql.SQL(',').join([sql.Placeholder()] * len(tags))
