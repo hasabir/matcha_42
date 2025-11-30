@@ -1,0 +1,136 @@
+.connection-status {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status-indicator:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-weight: 600;
+}
+
+.status-details {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.status-details h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.status-details h5 {
+  margin: 16px 0 8px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.status-info div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.status-info div:last-child {
+  border-bottom: none;
+}
+
+.status-history {
+  margin-top: 16px;
+}
+
+.history-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.history-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-entry:last-child {
+  border-bottom: none;
+}
+
+.timestamp {
+  color: #666;
+  font-family: monospace;
+}
+
+.status {
+  font-weight: 500;
+}
+
+.close-details {
+  margin-top: 12px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.close-details:hover {
+  background: #e0e0e0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .connection-status {
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  .status-details {
+    right: -10px;
+    min-width: 280px;
+  }
+}
