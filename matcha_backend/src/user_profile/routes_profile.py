@@ -109,7 +109,12 @@ def update_profile():
     if request_data:
         profile_crud.update_profile(g.user_id, request_data)
     if user_data:
-        user_crud.update_user(user_data, username=None, user_id=g.user_id)
+        # Get username from user_id to pass to update_user
+        current_user = user_crud.get_user_by_id(g.user_id)
+        if current_user and 'username' in current_user:
+            user_crud.update_user(user_data, username=current_user['username'])
+        else:
+            return jsonify({"error": "User not found"}), 404
     return jsonify({"status": "ok"}), 201
 
 

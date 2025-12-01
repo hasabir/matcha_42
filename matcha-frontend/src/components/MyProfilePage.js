@@ -438,8 +438,8 @@ const MyProfilePage = () => {
     console.log("Final allImages:", allImages);
   }
 
-  const displayName = profile?.first_name && profile?.last_name 
-    ? `${profile.first_name} ${profile.last_name}` 
+  const displayName = profile?.first_name || profile?.last_name
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
     : profile?.username || 'User';
 
   // Photo upload handler

@@ -567,3 +567,77 @@ def logout():
         }), 200)
         response.set_cookie('refresh_token', '', httponly=True, secure=True, samesite='Lax', max_age=0)
         return response
+
+
+@auth_bp.route("/change_password", methods=["POST"])
+@auth_guard
+def change_password():
+    """
+    Change password for authenticated user.
+    Requires current password verification and validates new password strength.
+    
+    Request body:
+        - current_password: string (required)
+        - new_password: string (required)
+    
+    Returns:
+        - 400: Missing required fields
+        - 401: Incorrect current password
+        - 400: Weak new password (with specific reason)
+        - 200: Password changed successfully
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        current_password = data.get('current_password', '').strip()
+        new_password = data.get('new_password', '').strip()
+        
+        # Validate required fields
+        if not current_password or not new_password:
+            return jsonify({"error": "Both current and new passwords are required"}), 400
+        
+        # Get database connection
+        connection_pool = current_app.config.get("CONNECTION_POOL")
+        if not connection_pool:
+            return jsonify({"error": "Database connection pool is not available"}), 500
+        
+        # Get current user from database
+        user_crud = User(connection_pool)
+        user = user_crud.get_user_by_id(g.user_id)
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Verify current password
+        if not SecurityUtils.password_check(user['password'], current_password):
+            logger.warning(f"Failed password change attempt for user {g.user_id}: incorrect current password")
+            return jsonify({"error": "Current password is incorrect"}), 401
+        
+        # Validate new password strength
+        from utils.common_passwords import validate_password_strength
+        is_valid, error_message = validate_password_strength(
+            new_password, 
+            username=user.get('username', ''),
+            email=user.get('email', '')
+        )
+        
+        if not is_valid:
+            logger.info(f"Weak password attempt for user {g.user_id}: {error_message}")
+            return jsonify({"error": error_message}), 400
+        
+        # Check if new password is same as current
+        if SecurityUtils.password_check(user['password'], new_password):
+            return jsonify({"error": "New password must be different from current password"}), 400
+        
+        # Hash new password and update
+        hashed_password = SecurityUtils.password_hash(new_password)
+        user_crud.update_user({'password': hashed_password}, user['username'])
+        
+        logger.info(f"✅ Password changed successfully for user {g.user_id}")
+        return jsonify({
+            "message": "Password changed successfully",
+            "success": True
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error changing password for user {g.user_id}: {str(e)}")
+        return jsonify({"error": "Failed to change password. Please try again later."}), 500

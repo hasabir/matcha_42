@@ -90,21 +90,21 @@ def upload_images():
         current_count = len(existing_images)
         upload_count = len(uploaded_files)
         
-        # Enforce maximum 5 images limit
-        MAX_IMAGES = 5
-        if current_count >= MAX_IMAGES:
+        # Enforce maximum 4 additional images limit (1 profile pic + 4 additional = 5 total)
+        MAX_ADDITIONAL_IMAGES = 4
+        if current_count >= MAX_ADDITIONAL_IMAGES:
             return jsonify({
-                "error": f"Maximum of {MAX_IMAGES} images allowed. Please delete existing images before uploading new ones.",
+                "error": f"Maximum of {MAX_ADDITIONAL_IMAGES} additional images allowed (5 photos total including profile picture). Please delete existing images before uploading new ones.",
                 "current_count": current_count,
-                "max_allowed": MAX_IMAGES
+                "max_allowed": MAX_ADDITIONAL_IMAGES
             }), 400
         
-        if current_count + upload_count > MAX_IMAGES:
-            allowed_count = MAX_IMAGES - current_count
+        if current_count + upload_count > MAX_ADDITIONAL_IMAGES:
+            allowed_count = MAX_ADDITIONAL_IMAGES - current_count
             return jsonify({
-                "error": f"Cannot upload {upload_count} images. You can only upload {allowed_count} more image(s) to reach the maximum of {MAX_IMAGES}.",
+                "error": f"Cannot upload {upload_count} images. You can only upload {allowed_count} more image(s) to reach the maximum of {MAX_ADDITIONAL_IMAGES} additional images (5 total including profile picture).",
                 "current_count": current_count,
-                "max_allowed": MAX_IMAGES,
+                "max_allowed": MAX_ADDITIONAL_IMAGES,
                 "allowed_uploads": allowed_count
             }), 400
         
@@ -120,7 +120,7 @@ def upload_images():
             "status": "ok",
             "image_paths": image_paths,
             "total_images": current_count + upload_count,
-            "max_allowed": MAX_IMAGES
+            "max_allowed": MAX_ADDITIONAL_IMAGES
         }), 200
 
     except BadRequestKeyError:

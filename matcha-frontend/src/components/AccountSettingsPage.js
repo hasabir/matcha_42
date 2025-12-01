@@ -232,6 +232,7 @@
 // export default AccountSettingsPage;
 import React, { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
+import { validatePasswordStrength, getPasswordStrength } from "../utils/passwordValidator";
 import "./AccountSettingsPage.css";
 
 /**
@@ -300,6 +301,8 @@ const AccountSettingsPage = () => {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [pwdSaving, setPwdSaving] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ strength: 'none', color: '#ccc', message: '' });
+  const [passwordError, setPasswordError] = useState("");
 
   // Fame rating and social signals
   const [fameRating, setFameRating] = useState(null);
@@ -339,7 +342,7 @@ const AccountSettingsPage = () => {
           if (profile.fame_rating !== undefined) setFameRating(profile.fame_rating);
         }
       } catch (e) {
-        console.warn("Failed to load profile", e);
+        // Silently handle error
         setStatus("Error loading profile");
       }
       try {
@@ -350,7 +353,7 @@ const AccountSettingsPage = () => {
           setProfilePicture(toAbsoluteUrl(picData.result));
         }
       } catch (e) {
-        console.warn("Failed to load profile picture", e);
+        // Silently handle error
       }
       try {
         // 2b) Load additional images
@@ -370,17 +373,17 @@ const AccountSettingsPage = () => {
           setImages(imagesWithAbsoluteUrls);
         }
       } catch (e) {
-        console.warn("Failed to load images", e);
+        // Silently handle error
       }
       try {
         // 3) Load user's tags (interests)
         const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
         const tagData = await tagRes.json();
         if (tagRes.ok && tagData?.result) {
-          setTags(tagData.result.map((t) => t.tag));
+          setTags(tagData.result);
         }
       } catch (e) {
-        console.warn("Failed to load tags", e);
+        // Silently handle error
       }
       try {
         // 4) Load fame rating (if not already set) and watchers/likers if available
@@ -436,7 +439,6 @@ const AccountSettingsPage = () => {
       }
     } catch (e) {
       // Permission API not supported, continue anyway
-      console.log("Permission API not available");
     }
 
     setLocating(true);
@@ -478,7 +480,7 @@ const AccountSettingsPage = () => {
             }
           }
         } catch (ipError) {
-          console.error("IP fallback failed:", ipError);
+          // Silently handle IP fallback failure
         }
         
         // If IP fallback also fails, show appropriate message
@@ -526,25 +528,28 @@ const AccountSettingsPage = () => {
           bio,
           gender,
           sexual_preferences: sexualPreferences,
-          location,
-          lat,
-          lng,
-          accuracy,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to update profile");
       setStatus("✅ Profile updated successfully!");
       
-      // refresh fame rating and images/tags
+      // refresh all profile data including first_name, last_name, and fame rating
       try {
         const refRes = await fetchWithAuth("http://localhost:5000/api/profile/get_profile/me");
         const refData = await refRes.json();
         if (refRes.ok && refData.result) {
-          setFameRating(refData.result.fame_rating);
+          const profile = refData.result;
+          setFirstName(profile.first_name || "");
+          setLastName(profile.last_name || "");
+          setEmail(profile.email || "");
+          setBio(profile.bio || "");
+          setGender(profile.gender || "");
+          setSexualPreferences(profile.sexual_preferences || "");
+          setFameRating(profile.fame_rating);
         }
       } catch (_) {
-        console.warn("Failed to refresh fame rating");
+        // Silently handle refresh failure
       }
       
       // Clear status after 3 seconds
@@ -559,31 +564,147 @@ const AccountSettingsPage = () => {
   /**
    * Change password for current user. Requires current password and new
    * passwords to match. Uses /api/auth/change_password.
+   * Validates password strength before sending to backend.
+   * 
+   * NOTE: Uses direct fetch instead of fetchWithAuth to prevent automatic
+   * redirect on 401 (incorrect current password should show error, not logout)
    */
   const handlePasswordUpdate = async () => {
-    if (!currentPwd || !newPwd) return setStatus("Fill all password fields.");
-    if (newPwd !== confirmPwd) return setStatus("New passwords do not match.");
-    setPwdSaving(true);
+    // Clear previous errors
+    setPasswordError("");
     setStatus(null);
+    
+    // Validate all fields are filled
+    if (!currentPwd || !newPwd || !confirmPwd) {
+      const errorMsg = "❌ Please fill in all password fields";
+      setPasswordError(errorMsg);
+      setStatus(errorMsg);
+      return;
+    }
+    
+    // Check if new passwords match
+    if (newPwd !== confirmPwd) {
+      const errorMsg = "❌ New passwords do not match";
+      setPasswordError(errorMsg);
+      setStatus(errorMsg);
+      return;
+    }
+    
+    // Validate password strength
+    const { isValid, error } = validatePasswordStrength(newPwd, "", email);
+    if (!isValid) {
+      const errorMsg = `❌ ${error}`;
+      setPasswordError(errorMsg);
+      setStatus(errorMsg);
+      return;
+    }
+    
+    setPwdSaving(true);
+    
     try {
-      const res = await fetchWithAuth("http://localhost:5000/api/auth/change_password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: currentPwd, new_password: newPwd }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed to change password");
+      // Get access token manually for direct fetch call
+      const token = localStorage.getItem("access_token");
+      
+      // Use direct fetch to prevent automatic redirect on 401
+      let res;
+      try {
+        res = await fetch("http://localhost:5000/api/auth/change_password", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          credentials: "include",
+          body: JSON.stringify({ current_password: currentPwd, new_password: newPwd }),
+        });
+      } catch (networkError) {
+        // Network error occurred
+        const errorMsg = "❌ Unable to change password. Please check your connection and try again.";
+        setPasswordError(errorMsg);
+        setStatus(errorMsg);
+        setPwdSaving(false);
+        return;
+      }
+      
+      // Parse JSON response first (before checking res.ok to avoid console errors)
+      let data = {};
+      try {
+        const textResponse = await res.text();
+        if (textResponse) {
+          data = JSON.parse(textResponse);
+        }
+      } catch (jsonError) {
+        // Silently handle JSON parse errors
+        data = {};
+      }
+      
+      // Now check response status and handle errors gracefully
+      if (!res.ok) {
+        // Handle specific error cases with user-friendly messages
+        let errorMessage = data?.error || "Failed to change password";
+        
+        // Map backend errors to user-friendly messages
+        if (res.status === 401) {
+          // All 401 errors are incorrect password
+          errorMessage = "❌ Current password is incorrect";
+        } else if (errorMessage.includes("weak") || errorMessage.includes("common") || 
+                   errorMessage.includes("characters") || errorMessage.includes("contain")) {
+          errorMessage = `❌ ${data?.error}`;
+        } else if (errorMessage.includes("same") || errorMessage.includes("different")) {
+          errorMessage = "❌ New password must be different from current password";
+        } else {
+          errorMessage = "❌ " + errorMessage;
+        }
+        
+        setPasswordError(errorMessage);
+        setStatus(errorMessage);
+        setPwdSaving(false);
+        
+        // Silently handle error - no console logging
+        return;
+      }
+      
+      // Success!
       setStatus("✅ Password changed successfully!");
       setCurrentPwd("");
       setNewPwd("");
       setConfirmPwd("");
+      setPasswordError("");
+      setPasswordStrength({ strength: 'none', color: '#ccc', message: '' });
       
-      // Clear status after 3 seconds
+      // Clear success message after 3 seconds
       setTimeout(() => setStatus(null), 3000);
+      
     } catch (e) {
-      setStatus(`❌ ${e.message}`);
+      // Handle network errors or other exceptions
+      const errorMsg = "❌ Unable to change password. Please check your connection and try again.";
+      setPasswordError(errorMsg);
+      setStatus(errorMsg);
+      
+      // Silently handle exception - no console logging
     } finally {
       setPwdSaving(false);
+    }
+  };
+
+  /**
+   * Handle new password change and update strength indicator
+   */
+  const handleNewPasswordChange = (value) => {
+    setNewPwd(value);
+    setPasswordError("");
+    
+    if (value) {
+      const strength = getPasswordStrength(value);
+      setPasswordStrength(strength);
+      
+      // Validate and show error immediately
+      const { isValid, error } = validatePasswordStrength(value, "", email);
+      if (!isValid && value.length >= 8) {
+        setPasswordError(error);
+      }
+    } else {
+      setPasswordStrength({ strength: 'none', color: '#ccc', message: '' });
     }
   };
 
@@ -679,7 +800,9 @@ const AccountSettingsPage = () => {
       // Clear status after 3 seconds
       setTimeout(() => setStatus(null), 3000);
     } catch (e) {
-      setStatus(e.message);
+      setStatus(`❌ ${e.message}`);
+      // Clear status after 5 seconds for errors
+      setTimeout(() => setStatus(null), 5000);
     } finally {
       setUploadingImages(false);
     }
@@ -706,7 +829,7 @@ const AccountSettingsPage = () => {
       // reload tags
       const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
       const tagData = await tagRes.json();
-      if (tagRes.ok && tagData?.result) setTags(tagData.result.map((t) => t.tag));
+      if (tagRes.ok && tagData?.result) setTags(tagData.result);
       setStatus("✅ Interest added successfully!");
       
       // Clear status after 3 seconds
@@ -734,7 +857,7 @@ const AccountSettingsPage = () => {
       // reload tags
       const tagRes = await fetchWithAuth("http://localhost:5000/api/profile/get_user_tags");
       const tagData = await tagRes.json();
-      if (tagRes.ok && tagData?.result) setTags(tagData.result.map((t) => t.tag));
+      if (tagRes.ok && tagData?.result) setTags(tagData.result);
       setStatus("✅ Interest removed successfully!");
       
       // Clear status after 3 seconds
@@ -812,6 +935,14 @@ const AccountSettingsPage = () => {
 
         <div className="settings-section">
           <h2>Additional Photos</h2>
+          <p className="photo-hint">
+            <small>You can upload up to 4 additional photos (5 photos total including profile picture). {images.length}/4 additional photos.</small>
+          </p>
+          {images.length >= 4 && (
+            <p style={{color: '#ff6b6b', fontSize: '14px', marginBottom: '10px'}}>
+              ⚠️ Maximum capacity reached. Please delete a photo before uploading a new one.
+            </p>
+          )}
           <div className="current-images-list">
             {images.length > 0 ? (
               images.map((img, idx) => (
@@ -844,10 +975,11 @@ const AccountSettingsPage = () => {
           <div className="actions">
             <button
               className="update-btn"
-              disabled={newImages.length === 0 || uploadingImages}
+              disabled={newImages.length === 0 || uploadingImages || images.length >= 4}
               onClick={uploadAdditionalImages}
+              title={images.length >= 4 ? "Delete a photo first to upload new ones" : ""}
             >
-              {uploadingImages ? "Uploading…" : "Upload Photos"}
+              {uploadingImages ? "Uploading…" : images.length >= 4 ? "Maximum Reached" : "Upload Photos"}
             </button>
           </div>
         </div>
@@ -858,20 +990,58 @@ const AccountSettingsPage = () => {
             type="password"
             placeholder="Current Password"
             value={currentPwd}
-            onChange={(e) => setCurrentPwd(e.target.value)}
+            onChange={(e) => {
+              setCurrentPwd(e.target.value);
+              setPasswordError("");
+            }}
           />
           <input
             type="password"
             placeholder="New Password"
             value={newPwd}
-            onChange={(e) => setNewPwd(e.target.value)}
+            onChange={(e) => handleNewPasswordChange(e.target.value)}
           />
+          {/* Password strength indicator */}
+          {newPwd && (
+            <div className="password-strength-indicator">
+              <div className="strength-bar-container">
+                <div 
+                  className={`strength-bar strength-${passwordStrength.strength}`}
+                  style={{ 
+                    width: passwordStrength.strength === 'strong' ? '100%' : 
+                           passwordStrength.strength === 'medium' ? '66%' : 
+                           passwordStrength.strength === 'weak' ? '33%' : '0%',
+                    backgroundColor: passwordStrength.color
+                  }}
+                />
+              </div>
+              {passwordStrength.message && (
+                <span className="strength-message" style={{ color: passwordStrength.color }}>
+                  {passwordStrength.message}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Show password validation error */}
+          {passwordError && newPwd.length >= 3 && (
+            <div className="password-error-hint">
+              <small style={{ color: '#ff4444' }}>{passwordError}</small>
+            </div>
+          )}
           <input
             type="password"
             placeholder="Confirm New Password"
             value={confirmPwd}
-            onChange={(e) => setConfirmPwd(e.target.value)}
+            onChange={(e) => {
+              setConfirmPwd(e.target.value);
+              setPasswordError("");
+            }}
           />
+          <div className="password-requirements">
+            <small>
+              <strong>Password requirements:</strong> At least 8 characters, containing at least 3 of: uppercase, lowercase, numbers, special characters (!@#$%^&*). Avoid common words and patterns.
+            </small>
+          </div>
           <div className="actions">
             <button className="update-btn" disabled={pwdSaving} onClick={handlePasswordUpdate}>
               {pwdSaving ? "Saving…" : "Update Password"}
@@ -927,31 +1097,6 @@ const AccountSettingsPage = () => {
               </select>
             </div>
           </div>
-
-          <div className="location-field">
-            <label>Location</label>
-            <input
-              type="text"
-              placeholder="Enter your location (e.g., Paris, France)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </div>
-          <div className="coords-group">
-            <button type="button" className="gps-btn" onClick={locateByGPS} disabled={locating}>
-              {locating ? "Locating…" : "📍 Use my GPS location"}
-            </button>
-            {lat && lng && (
-              <small className="coords-hint">
-                ✓ GPS coordinates detected: {lat}, {lng} (accuracy: ±{accuracy}m)
-              </small>
-            )}
-          </div>
-          <p className="location-note">
-            <small>
-              💡 You can manually enter your location or use GPS. If GPS doesn't work, make sure location permissions are enabled in your browser settings.
-            </small>
-          </p>
 
           <div className="actions">
             <button className="update-btn" disabled={saving} onClick={handleInfoUpdate}>

@@ -4,7 +4,6 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 def allowed_file(filename):
     """Check if the file extension is allowed"""
@@ -33,14 +32,6 @@ def upload_pictures(file, user_id, is_profile_pic=True):
     
     if not allowed_file(file.filename):
         raise ValueError(f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}")
-    
-    # Check file size
-    file.seek(0, os.SEEK_END)
-    file_size = file.tell()
-    file.seek(0)
-    
-    if file_size > MAX_FILE_SIZE:
-        raise ValueError(f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024*1024)}MB")
     
     # Generate unique filename
     filename = secure_filename(file.filename)

@@ -42,16 +42,11 @@ const ProfileStepOne = () => {
 
   const onPickFiles = (e) => {
     const files = Array.from(e.target.files || []);
-    // Validate file types and sizes
+    // Validate file types
     const validFiles = files.filter(file => {
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
       if (!validTypes.includes(file.type)) {
       setStatus(`Invalid file type: ${file.name}. Please use JPG, PNG, GIF, or WebP.`);
-        return false;
-      }
-      if (file.size > maxSize) {
-        setStatus(`File too large: ${file.name}. Maximum size is 5MB.`);
         return false;
       }
       return true;
@@ -262,11 +257,20 @@ const ProfileStepOne = () => {
       if (others.length) {
         const uploadForm = new FormData();
         others.forEach(f => uploadForm.append("images", f));
-        await fetch("http://localhost:5000/api/profile/upload_images", {
+        const uploadRes = await fetch("http://localhost:5000/api/profile/upload_images", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: uploadForm
         });
+        const uploadData = await uploadRes.json().catch(() => ({}));
+        if (!uploadRes.ok) {
+          console.error("Failed to upload additional images:", uploadData);
+          setStatus(`Warning: ${uploadData.error || "Some images failed to upload"}. Please check your profile and try uploading them again from Account Settings.`);
+          setSaving(false);
+          // Continue to profile page after showing warning for 3 seconds
+          setTimeout(() => navigate("/profile"), 3000);
+          return;
+        }
       }
 
       // Step 3: add tags
@@ -408,7 +412,7 @@ const ProfileStepOne = () => {
 
         <h2>Add photos</h2>
         <p className="photo-hint">
-          Add up to 5 photos (JPG, PNG, GIF, or WebP). Max 5MB per file.
+          Add up to 5 photos total: 1 profile photo + 4 additional (JPG, PNG, GIF, or WebP).
           {photos.length > 0 && ` (${photos.length}/5 photos added)`}
         </p>
         <input
