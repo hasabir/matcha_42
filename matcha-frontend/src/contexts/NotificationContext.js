@@ -22,7 +22,6 @@ export const NotificationProvider = ({ children }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [socket, setSocket] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
@@ -53,28 +52,28 @@ export const NotificationProvider = ({ children }) => {
     // Don't connect if not authenticated
     if (!isAuthenticated || !user || !user.id) {
       console.warn('⚠️ [NotificationContext] No authenticated user - socket connection skipped');
-      
+
       // Clean up existing socket if user logged out
       if (socketRef.current) {
         console.log('🧹 [NotificationContext] Closing socket due to logout');
-        
+
         // Clear connection monitor
         if (socketRef.current._connectionMonitor) {
           clearInterval(socketRef.current._connectionMonitor);
         }
-        
+
         // Clear heartbeat interval
         if (socketRef.current._heartbeatInterval) {
           clearInterval(socketRef.current._heartbeatInterval);
         }
-        
+
         socketRef.current.close();
         socketRef.current = null;
         setSocket(null);
         setSocketConnected(false);
         setCurrentUserId(null);
         socketInitializedRef.current = false;
-        
+
         // Clear localStorage on logout
         try {
           localStorage.removeItem('notifications');
@@ -104,18 +103,18 @@ export const NotificationProvider = ({ children }) => {
     // Initialize socket connection
     const initSocket = async () => {
       console.log('🚀 [NotificationContext] initSocket() called');
-      
+
       try {
         console.log('🔑 [NotificationContext] Attempting to get valid token...');
-        
+
         // Get valid token (will refresh if expired)
         const token = await tokenManager.getValidToken();
-        
+
         console.log('🔑 [NotificationContext] Token retrieval result:', {
           hasToken: !!token,
           tokenLength: token ? token.length : 0
         });
-        
+
         if (!token) {
           console.error('❌ [NotificationContext] No valid token available for socket connection');
           console.error('❌ [NotificationContext] Token manager returned:', token);
@@ -130,9 +129,9 @@ export const NotificationProvider = ({ children }) => {
 
         const socketConfig = {
           ...SOCKET_CONFIG,
-          auth: { 
+          auth: {
             token: `Bearer ${token}`,
-            user_id: user.id 
+            user_id: user.id
           },
           extraHeaders: {
             'Authorization': `Bearer ${token}`
@@ -175,7 +174,7 @@ export const NotificationProvider = ({ children }) => {
           console.log('🔌 [NotificationContext] Socket disconnected:', reason);
           console.log('🔌 [NotificationContext] Disconnect reason:', reason);
           setSocketConnected(false);
-          
+
           // Don't reset initialization flag for normal disconnects
           // Only reset for server-initiated disconnects
           if (reason === 'io server disconnect') {
@@ -188,7 +187,7 @@ export const NotificationProvider = ({ children }) => {
         console.log('🔗 [NotificationContext] Calling socket.connect()...');
         console.log('🔗 [NotificationContext] Socket URL:', SOCKET_URL);
         console.log('🔗 [NotificationContext] Socket config:', socketConfig);
-        
+
         // Add a timeout to check connection status
         setTimeout(() => {
           console.log('🔍 [NotificationContext] Socket status after 2s:', {
@@ -222,26 +221,20 @@ export const NotificationProvider = ({ children }) => {
         // Store monitors for cleanup
         newSocket._connectionMonitor = connectionMonitor;
         newSocket._heartbeatInterval = heartbeatInterval;
-        
+
         newSocket.connect();
 
         // Listen for new messages (global) - NO TOAST HERE
         newSocket.on('message_notification', (data) => {
           console.log('📬 [NotificationContext] New message notification:', data);
-          
-          // Increment BOTH message count AND notification count for messages
-          setUnreadMessageCount(prev => {
-            const newCount = prev + 1;
-            console.log('📨 [NotificationContext] Unread message count updated:', newCount);
-            return newCount;
-          });
-          
+
+          // Increment notification count for messages
           setUnreadNotificationCount(prev => {
             const newCount = prev + 1;
             console.log('🔔 [NotificationContext] Unread notification count updated (from message):', newCount);
             return newCount;
           });
-          
+
           // NO TOAST - let the Notifications component handle it
           // This prevents duplicate toasts
         });
@@ -270,7 +263,7 @@ export const NotificationProvider = ({ children }) => {
         // Listen for typing indicators
         newSocket.on('user_typing', (data) => {
           setTypingUsers(prev => ({ ...prev, [data.user_id]: data.is_typing }));
-          
+
           // Auto-clear typing after 3 seconds
           if (data.is_typing) {
             setTimeout(() => {
@@ -282,20 +275,20 @@ export const NotificationProvider = ({ children }) => {
         // Listen for general notifications (likes, views, matches, etc - NOT messages)
         newSocket.on('new_notification', (data) => {
           console.log('🔔 [NotificationContext] New notification:', data);
-          
+
           // Skip message-type notifications (handled by message_notification event)
           if (data.type === 'new_message') {
             console.log('⚠️ [NotificationContext] Skipping new_message in new_notification handler');
             return;
           }
-          
+
           // Increment notification count for non-message notifications
           setUnreadNotificationCount(prev => {
             const newCount = prev + 1;
             console.log('🔔 [NotificationContext] Unread notification count updated:', newCount);
             return newCount;
           });
-          
+
           // NO TOAST HERE - let the Notifications component handle it
           // This prevents duplicate toasts
         });
@@ -309,11 +302,11 @@ export const NotificationProvider = ({ children }) => {
           console.error('🔍 [NotificationContext] Error details:', error);
           console.error('🔍 [NotificationContext] Error type:', error.type);
           console.error('🔍 [NotificationContext] Error description:', error.description);
-          
+
           // Reset initialization flag on connection error to allow retry
           socketInitializedRef.current = false;
           setSocketConnected(false);
-          
+
           // Show user-friendly toast notification
           toast.error('Unable to connect to notification service. Retrying...', {
             position: 'bottom-right',
@@ -353,7 +346,7 @@ export const NotificationProvider = ({ children }) => {
             wasConnected: newSocket.connected
           });
           setSocketConnected(false);
-          
+
           // Reset initialization flag to allow reconnection
           if (reason === 'io server disconnect' || reason === 'io client disconnect') {
             socketInitializedRef.current = false;
@@ -385,21 +378,21 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     // This effect manages the socket lifecycle
     const currentSocket = socketRef.current;
-    
+
     return () => {
       if (currentSocket) {
         console.log('🧹 [NotificationContext] Component unmounting - closing socket connection');
-        
+
         // Clear connection monitor
         if (currentSocket._connectionMonitor) {
           clearInterval(currentSocket._connectionMonitor);
         }
-        
+
         // Clear heartbeat interval
         if (currentSocket._heartbeatInterval) {
           clearInterval(currentSocket._heartbeatInterval);
         }
-        
+
         currentSocket.close();
         socketRef.current = null;
         setSocket(null);
@@ -412,12 +405,11 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     const fetchCounts = async () => {
       console.log('📊 [NotificationContext] Fetching initial unread counts...');
-      
+
       // Don't fetch if not authenticated
       if (!isAuthenticated || !user) {
         console.log('⚠️ [NotificationContext] Skipping count fetch - not authenticated');
         // Reset counts when not authenticated
-        setUnreadMessageCount(0);
         setUnreadNotificationCount(0);
         return;
       }
@@ -425,28 +417,12 @@ export const NotificationProvider = ({ children }) => {
       try {
         console.log('🔑 [NotificationContext] Getting valid token for count fetch...');
 
-        // Fetch unread messages
-        console.log('📬 [NotificationContext] Fetching unread message count...');
-        const msgResponse = await tokenManager.authenticatedFetch(
-          'http://localhost:5000/api/chat/unread_count'
-        );
-        
-        if (msgResponse.ok) {
-          const msgData = await msgResponse.json();
-          const messageCount = msgData.unread_count || 0;
-          setUnreadMessageCount(messageCount);
-          console.log('✅ [NotificationContext] Unread messages FROM BACKEND:', messageCount);
-        } else {
-          console.warn('⚠️ [NotificationContext] Failed to fetch unread messages:', msgResponse.status);
-          setUnreadMessageCount(0); // Reset on error
-        }
-
-        // Fetch unread notifications
+        // Fetch unread notifications only (unread messages feature removed)
         console.log('🔔 [NotificationContext] Fetching unread notification count...');
         const notifResponse = await tokenManager.authenticatedFetch(
           'http://localhost:5000/api/notifications/unread_count'
         );
-        
+
         if (notifResponse.ok) {
           const notifData = await notifResponse.json();
           const notificationCount = notifData.unread_count || 0;
@@ -459,7 +435,6 @@ export const NotificationProvider = ({ children }) => {
       } catch (error) {
         console.error('❌ [NotificationContext] Error fetching unread counts:', error);
         // Reset counts on error to avoid stale data
-        setUnreadMessageCount(0);
         setUnreadNotificationCount(0);
       }
     };
@@ -471,29 +446,20 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     const handleNotificationSeen = (event) => {
       console.log('👁️ [NotificationContext] Notification marked as seen event received');
-      
+
       const detail = event.detail || {};
       const notificationType = detail.type;
-      
+
       // Decrement notification count
       setUnreadNotificationCount(prev => {
         const newCount = Math.max(0, prev - 1);
         console.log(`📊 [NotificationContext] Notification count: ${prev} -> ${newCount}`);
         return newCount;
       });
-      
-      // Also decrement message count if it was a message notification
-      if (notificationType === 'new_message') {
-        setUnreadMessageCount(prev => {
-          const newCount = Math.max(0, prev - 1);
-          console.log(`📨 [NotificationContext] Message count: ${prev} -> ${newCount}`);
-          return newCount;
-        });
-      }
     };
 
     window.addEventListener('notification-marked-seen', handleNotificationSeen);
-    
+
     return () => {
       window.removeEventListener('notification-marked-seen', handleNotificationSeen);
     };
@@ -517,56 +483,56 @@ export const NotificationProvider = ({ children }) => {
   // Function to explicitly disconnect socket (called on logout)
   const disconnectSocket = () => {
     console.log('🔌 [NotificationContext] Explicitly disconnecting socket on logout');
-    
+
     if (socketRef.current) {
       // Emit logout event to backend before disconnecting
       if (socketRef.current.connected) {
         try {
           console.log('📤 [NotificationContext] Emitting user_logout event for user:', currentUserId);
-          
+
           // Emit with acknowledgement callback to ensure it's received
           socketRef.current.emit('user_logout', (response) => {
             console.log('✅ [NotificationContext] Server acknowledged user_logout event:', response);
           });
-          
+
           console.log('✅ [NotificationContext] user_logout event emitted');
-          
+
           // Give the logout event a moment to reach the server before disconnecting
           // This ensures the server processes the logout and broadcasts offline status
           setTimeout(() => {
             console.log('⏱️ [NotificationContext] Now disconnecting socket after logout event');
             performDisconnect();
           }, 300); // Increased delay to ensure event is sent, processed, and broadcasted
-          
+
           return; // Exit here, performDisconnect will be called after timeout
         } catch (e) {
           console.warn('⚠️ [NotificationContext] Failed to emit logout event:', e);
         }
       }
-      
+
       // If not connected or error occurred, disconnect immediately
       performDisconnect();
     }
   };
-  
+
   // Helper function to perform actual disconnect
   const performDisconnect = () => {
     if (!socketRef.current) return;
-    
+
     console.log('🔌 [NotificationContext] Performing socket disconnect');
-    
+
     // Clear connection monitor
     if (socketRef.current._connectionMonitor) {
       clearInterval(socketRef.current._connectionMonitor);
       socketRef.current._connectionMonitor = null;
     }
-    
+
     // Clear heartbeat interval
     if (socketRef.current._heartbeatInterval) {
       clearInterval(socketRef.current._heartbeatInterval);
       socketRef.current._heartbeatInterval = null;
     }
-    
+
     // Disconnect the socket
     socketRef.current.disconnect();
     socketRef.current = null;
@@ -574,7 +540,7 @@ export const NotificationProvider = ({ children }) => {
     setSocketConnected(false);
     setCurrentUserId(null);
     socketInitializedRef.current = false;
-      
+
     console.log('✅ [NotificationContext] Socket disconnected successfully');
   };
 
@@ -582,24 +548,12 @@ export const NotificationProvider = ({ children }) => {
     socket,
     socketConnected,
     currentUserId,
-    unreadMessageCount,
-    setUnreadMessageCount,
     unreadNotificationCount,
     setUnreadNotificationCount,
     onlineUsers,
     typingUsers,
     checkSocketStatus,
     disconnectSocket,
-    // Helper method to decrease counts when messages are read
-    decrementMessageCount: (count = 1) => {
-      console.log(`📉 [NotificationContext] Decrementing message count by ${count}`);
-      setUnreadMessageCount(prev => {
-        const newCount = Math.max(0, prev - count);
-        console.log(`📊 [NotificationContext] Message count: ${prev} -> ${newCount}`);
-        return newCount;
-      });
-      // DO NOT decrement notification count here - messages and notifications are separate
-    },
   };
 
   return (

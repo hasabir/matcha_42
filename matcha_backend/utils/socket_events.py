@@ -100,7 +100,7 @@ def register_socket_events(socketio):
                     # Get socketio instance from current_app
                     socketio_instance = current_app.config.get("SOCKETIO")
                     if socketio_instance:
-                        socketio_instance.emit('user_status_changed', status_payload, broadcast=True)
+                        socketio_instance.emit('user_status_changed', status_payload, namespace='/')
                         logger.info(f"📢 Broadcasted online status for user {user_id}: {status_payload}")
                     else:
                         logger.warning(f"⚠️ Could not get socketio instance to broadcast online status for user {user_id}")
@@ -198,7 +198,7 @@ def register_socket_events(socketio):
                             # Get socketio instance from current_app
                             socketio_instance = current_app.config.get("SOCKETIO")
                             if socketio_instance:
-                                socketio_instance.emit('user_status_changed', status_payload, broadcast=True)
+                                socketio_instance.emit('user_status_changed', status_payload, namespace='/')
                                 logger.info(f"📢 Broadcasted offline status for user {user_id_int}: {status_payload}")
                             else:
                                 logger.error(f"❌ Could not get socketio instance to broadcast offline status for user {user_id_int}")
@@ -256,7 +256,7 @@ def register_socket_events(socketio):
                     # Get socketio instance from current_app
                     socketio_instance = current_app.config.get("SOCKETIO")
                     if socketio_instance:
-                        socketio_instance.emit('user_status_changed', status_payload, broadcast=True)
+                        socketio_instance.emit('user_status_changed', status_payload, namespace='/')
                         logger.info(f"📢 Broadcasted offline status for user {user_id_int} (logout): {status_payload}")
                     else:
                         logger.error(f"❌ Could not get socketio instance to broadcast offline status for user {user_id_int}")

@@ -13,7 +13,7 @@ const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const toAbsoluteUrl = (url) => {
   if (!url) return FALLBACK_AVATAR;
   if (/^https?:\/\//i.test(url)) return url;
-  
+
   try {
     let cleanUrl = url.replace(/^\/+/, '');
     if (cleanUrl.startsWith('profiles/') && !cleanUrl.startsWith('static/')) {
@@ -27,7 +27,7 @@ const toAbsoluteUrl = (url) => {
 };
 
 const Chat = () => {
-  const { socket, socketConnected, currentUserId, decrementMessageCount } = useNotifications();
+  const { socket, socketConnected, currentUserId } = useNotifications();
   const { isLoading: authLoading, user } = useAuth();
   const [matches, setMatches] = useState([]);
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -39,7 +39,7 @@ const Chat = () => {
 
   // Track socket readiness - use user ID from AuthContext instead of NotificationContext
   const socketReady = socketConnected && user?.id;
-  
+
   // Debug socket status
   useEffect(() => {
     console.log('🔍 [Chat] Socket status:', {
@@ -98,7 +98,7 @@ const Chat = () => {
       other_user_id: match.id,
       socketConnected: socket.connected
     });
-    
+
     socket.emit('join_chat', { user_id: user.id, other_user_id: match.id });
 
     let loadedMessages = cached;
@@ -129,12 +129,12 @@ const Chat = () => {
       console.error('Error fetching chat history:', err);
       // Check if it's a blocking error
       if (err.response?.data?.blocked) {
-        setSelectedMatch({...match, blocked: true, blockedMessage: err.response.data.error});
+        setSelectedMatch({ ...match, blocked: true, blockedMessage: err.response.data.error });
         setMessages([]);
         return;
       }
     }
-  }, [socket, currentUserId, decrementMessageCount]);
+  }, [socket, currentUserId]);
 
   // Setup socket event listeners
   useEffect(() => {
@@ -143,17 +143,17 @@ const Chat = () => {
     const handleNewMessage = (message) => {
       console.log('📥 [Chat] Received message:', message);
       console.log('📥 [Chat] Current match:', selectedMatch);
-      console.log('📥 [Chat] Current user ID from AuthContext:', user.id);
+      console.log('📥 [Chat] Current user ID from AuthContext:', user?.id);
       console.log('📥 [Chat] Current user ID from NotificationContext:', currentUserId);
-      
+
       if (!selectedMatch) {
         console.log('📥 [Chat] No selected match, ignoring message');
         return;
       }
 
       const isRelevantMessage =
-        (message.sender_id === selectedMatch.id && message.receiver_id === user.id) ||
-        (message.sender_id === user.id && message.receiver_id === selectedMatch.id);
+        (message.sender_id === selectedMatch.id && message.receiver_id === currentUserId) ||
+        (message.sender_id === currentUserId && message.receiver_id === selectedMatch.id);
 
       console.log('📥 [Chat] Is relevant message:', isRelevantMessage);
       if (!isRelevantMessage) return;
@@ -187,12 +187,12 @@ const Chat = () => {
     };
 
     socket.on('new_message', handleNewMessage);
-    
+
     // Listen for chat room join confirmation
     const handleChatJoined = (data) => {
       console.log('🔗 [Chat] Successfully joined chat room:', data);
     };
-    
+
     socket.on('chat_joined', handleChatJoined);
 
     // Listen for message delivery confirmation
@@ -200,25 +200,25 @@ const Chat = () => {
       console.log('✅ [Chat] Message sent confirmation:', data);
       if (data.status === 'success') {
         // Update temp message to delivered status
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.id.toString().startsWith('temp-') && msg.status === 'sending'
             ? { ...msg, status: 'delivered', id: data.message_id }
             : msg
         ));
       }
     };
-    
+
     socket.on('message_sent', handleMessageSent);
 
     // Listen for socket errors (including blocking)
     const handleSocketError = (error) => {
       console.error('❌ [Chat] Socket error:', error);
       if (error.blocked && selectedMatch) {
-        setSelectedMatch({...selectedMatch, blocked: true, blockedMessage: error.message});
+        setSelectedMatch({ ...selectedMatch, blocked: true, blockedMessage: error.message });
         setMessages([]);
       }
     };
-    
+
     socket.on('error', handleSocketError);
 
     return () => {
@@ -227,7 +227,7 @@ const Chat = () => {
       socket.off('message_sent', handleMessageSent);
       socket.off('error', handleSocketError);
     };
-  }, [socket, selectedMatch, socketReady]);
+  }, [socket, selectedMatch, socketReady, currentUserId, user]);
 
   // Load match list on mount
   useEffect(() => {
@@ -335,7 +335,7 @@ const Chat = () => {
       socketConnected: socket?.connected,
       socketReady
     });
-    
+
     try {
       socket.emit('send_message', {
         sender_id: user.id,
@@ -397,9 +397,9 @@ const Chat = () => {
                   className={`match-item ${selectedMatch?.id === m.id ? 'active' : ''}`}
                   onClick={() => selectMatch(m)}
                 >
-                  <img 
-                    src={toAbsoluteUrl(m.profile_picture)} 
-                    alt="Profile" 
+                  <img
+                    src={toAbsoluteUrl(m.profile_picture)}
+                    alt="Profile"
                     className="match-avatar"
                     onError={(e) => { e.target.src = FALLBACK_AVATAR; }}
                   />
@@ -417,9 +417,9 @@ const Chat = () => {
           {selectedMatch ? (
             <>
               <div className="chat-header">
-                <img 
-                  src={toAbsoluteUrl(selectedMatch.profile_picture)} 
-                  alt="Profile" 
+                <img
+                  src={toAbsoluteUrl(selectedMatch.profile_picture)}
+                  alt="Profile"
                   className="chat-header-avatar"
                   onError={(e) => { e.target.src = FALLBACK_AVATAR; }}
                 />

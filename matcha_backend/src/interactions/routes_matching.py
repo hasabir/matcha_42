@@ -39,6 +39,3 @@ def get_matching_suggestions():
     
     return jsonify({"matching suggestions list": matching_suggestions_list}), 200
 
-    # except Exception as e:
-    #     logger.error(f"Error in /get_matched_users endpoint: {e}")
-    #     return jsonify({"error": str(e)}), 400

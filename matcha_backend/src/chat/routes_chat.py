@@ -122,32 +122,3 @@ def get_chat_history():
         }), 500
 
 
-@chat_bp.route("/unread_count", methods=["GET"])
-@auth_guard
-def get_unread_count():
-    """Get count of unread messages for the authenticated user"""
-    try:
-        # Get database connection
-        connection_pool = current_app.config.get("CONNECTION_POOL")
-        if not connection_pool:
-            logger.error("Database connection pool is not available")
-            return jsonify({"error": "Service unavailable"}), 503
-        
-        # Fetch unread count
-        chat_crud = Chat(connection_pool)
-        unread_count = chat_crud.get_unread_message_count(g.user_id)
-        
-        logger.info(f"✅ User {g.user_id} has {unread_count} unread messages")
-        
-        return jsonify({
-            'success': True,
-            'unread_count': unread_count
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"❌ Error fetching unread count: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': 'An error occurred while fetching unread count',
-            'unread_count': 0
-        }), 500

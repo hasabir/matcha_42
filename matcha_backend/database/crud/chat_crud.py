@@ -44,7 +44,7 @@ class Chat(DBManager):
             logger.error(f"Conversation error: {e}")
             return None
 
-    def create_message(self, sender_id, receiver_id, content, status='sent'):
+    def create_message(self, sender_id, receiver_id, content):
         """
         Create and persist a chat message with explicit commit.
         Returns a dict with id, timestamp, and all message details.
@@ -75,12 +75,12 @@ class Chat(DBManager):
             cursor = conn.cursor()
             
             query = """
-                INSERT INTO messages (conversation_id, sender_id, message_text, is_read, status)
-                VALUES (%s, %s, %s, FALSE, %s)
+                INSERT INTO messages (conversation_id, sender_id, message_text)
+                VALUES (%s, %s, %s)
                 RETURNING message_id, created_at
             """
             logger.info(f"🔄 Executing INSERT with convo_id={convo_id}, sender={sender_id}")
-            cursor.execute(query, (convo_id, sender_id, content, status))
+            cursor.execute(query, (convo_id, sender_id, content))
             result = cursor.fetchone()
             conn.commit()  # Explicit commit to ensure persistence
             
@@ -98,8 +98,6 @@ class Chat(DBManager):
                 'receiver_id': receiver_id,
                 'message_text': content,
                 'created_at': created_at,
-                'is_read': False,
-                'status': status,
             }
         except Exception as e:
             if conn:
@@ -121,9 +119,7 @@ class Chat(DBManager):
                     m.sender_id,
                     CASE WHEN m.sender_id = %s THEN %s ELSE %s END AS receiver_id,
                     m.message_text,
-                    m.created_at,
-                    COALESCE(m.is_read, FALSE) AS is_read,
-                    COALESCE(m.status, 'sent') AS status
+                    m.created_at
                 FROM messages m
                 JOIN conversations c ON m.conversation_id = c.conversation_id
                 WHERE ((c.user1_id = %s AND c.user2_id = %s)
@@ -152,80 +148,7 @@ class Chat(DBManager):
             logger.error(f"❌ Conversation retrieval error: {e}")
             return []
 
-    def get_unread_message_count(self, user_id):
-        """Get count of unread messages for a user"""
-        try:
-            result = self.execute("""
-                SELECT COUNT(*) as count 
-                FROM messages m
-                JOIN conversations c ON m.conversation_id = c.conversation_id
-                WHERE ((c.user1_id = %s AND m.sender_id = c.user2_id)
-                    OR (c.user2_id = %s AND m.sender_id = c.user1_id))
-                AND m.is_read = FALSE
-            """, (user_id, user_id), fetch=True)
-            return result[0]['count'] if result else 0
-        except Exception as e:
-            logger.error(f"Unread count error: {e}")
-            return 0
 
-    def get_unread_count_by_conversation(self, user_id):
-        """Get unread message count grouped by sender"""
-        try:
-            result = self.execute("""
-                SELECT m.sender_id, COUNT(*) as unread_count
-                FROM messages m
-                JOIN conversations c ON m.conversation_id = c.conversation_id
-                WHERE ((c.user1_id = %s AND m.sender_id = c.user2_id)
-                    OR (c.user2_id = %s AND m.sender_id = c.user1_id))
-                AND m.is_read = FALSE
-                GROUP BY m.sender_id
-            """, (user_id, user_id), fetch=True)
-            return {row['sender_id']: row['unread_count'] for row in result} if result else {}
-        except Exception as e:
-            logger.error(f"Error getting unread by conversation: {e}")
-            return {}
-
-    def mark_messages_as_read(self, sender_id, receiver_id):
-        """Mark all messages from sender to receiver as read"""
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                UPDATE messages m
-                SET is_read = TRUE, status = 'read'
-                FROM conversations c
-                WHERE m.conversation_id = c.conversation_id
-                AND m.sender_id = %s
-                AND ((c.user1_id = %s AND c.user2_id = %s) OR (c.user1_id = %s AND c.user2_id = %s))
-                AND m.is_read = FALSE
-            """, (sender_id, receiver_id, sender_id, sender_id, receiver_id))
-            
-            conn.commit()
-            logger.info(f"✅ Marked messages as read: {sender_id} -> {receiver_id}")
-            return True
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"❌ Mark read error: {e}")
-            return False
-        finally:
-            if conn:
-                self._return_connection(conn)
-
-    def mark_message_as_delivered(self, message_id):
-        """Mark a single message as delivered"""
-        try:
-            self.execute("""
-                UPDATE messages
-                SET status = 'delivered'
-                WHERE message_id = %s AND status = 'sent'
-            """, (message_id,))
-            return True
-        except Exception as e:
-            logger.error(f"Mark delivered error: {e}")
-            return False
 
     def update_online_status(self, user_id, is_online, socket_id=None):
         """Update user's online status"""
